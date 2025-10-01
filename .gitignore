@@ -1,0 +1,8 @@
+# CSV data files
+*.csv
+
+# Plot script
+plot_csv_data.m
+
+# Claude Code settings
+.claude/
