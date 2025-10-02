@@ -33,8 +33,12 @@ excited_channel = 4;          % Input channel (excitation applied at this channe
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
 wc_multi_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
 
+% Synthetic point generation (for low-frequency augmentation)
+ENABLE_SYNTHETIC_POINTS = true;   % true: add synthetic low-freq points, false: use original data only
+freq_synthetic_Hz = [0.2, 0.5, 2, 5];  % Additional low-frequency points to generate (Hz)
+
 % Plot control switches
-PLOT_ONE_CURVE = true;       % Plot single curve Bode
+PLOT_ONE_CURVE = false;       % Plot single curve Bode
 PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
 MULTI_CURVE_EXCITED_CHANNELS = [1, 2, 3, 4, 5, 6];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
@@ -203,31 +207,138 @@ else
     fprintf('b  = %.6f\n', b);
 end
 
+%% Generate synthetic low-frequency points (if enabled)
+
+if ENABLE_SYNTHETIC_POINTS
+    fprintf('\n=== Generating Synthetic Low-Frequency Points ===\n');
+
+    num_synthetic = length(freq_synthetic_Hz);
+    w_synthetic = freq_synthetic_Hz(:) * 2 * pi;  % rad/s
+
+    % Storage for synthetic data: 36 curves x num_synthetic points
+    H_mag_synthetic = zeros(36, num_synthetic);
+    H_phase_synthetic = zeros(36, num_synthetic);
+
+    % Perform single curve fitting for all 36 curves
+    for i = 1:6
+        for j = 1:6
+            L = (i-1)*6 + j;
+
+            % Extract data for this curve (use offset-removed phase!)
+            h_k_curve = squeeze(H_mag(i, j, :));
+            phi_k_curve = squeeze(H_phase_offset_removed(i, j, :)) * pi / 180;  % Use preprocessed phase
+
+            sin_phi_k_curve = sin(phi_k_curve);
+            cos_phi_k_curve = cos(phi_k_curve);
+
+            % Weighting for single curve fitting (same as multi)
+            wc_syn = wc_multi_Hz * 2 * pi;
+            weight_k_curve = 1 ./ (1 + (w_k.^2 / wc_syn^2)).^p_multi;
+
+            % Build matrices for single curve fitting
+            sum_hk2_wk2 = sum(weight_k_curve .* h_k_curve.^2 .* w_k.^2);
+            sum_hk2 = sum(weight_k_curve .* h_k_curve.^2);
+            sum_hk_sin_wk = sum(weight_k_curve .* h_k_curve .* sin_phi_k_curve .* w_k);
+            sum_hk_cos = sum(weight_k_curve .* h_k_curve .* cos_phi_k_curve);
+            sum_hk_cos_wk2 = sum(weight_k_curve .* h_k_curve .* cos_phi_k_curve .* w_k.^2);
+
+            a_single = [
+                sum_hk2_wk2,        0,              sum_hk_sin_wk;
+                0,                  sum_hk2,       -sum_hk_cos;
+                sum_hk_sin_wk,     -sum_hk_cos,     sum(weight_k_curve);
+            ];
+
+            y_single = [
+                0;
+                sum_hk2_wk2;
+               -sum_hk_cos_wk2;
+            ];
+
+            x_single = a_single \ y_single;
+            a1_L = x_single(1);
+            a2_L = x_single(2);
+            b_L = x_single(3);
+
+            % Generate synthetic data at synthetic frequencies
+            s_syn = 1j * w_synthetic;
+            H_syn = b_L ./ (s_syn.^2 + a1_L*s_syn + a2_L);
+
+            H_mag_synthetic(L, :) = abs(H_syn);
+            H_phase_synthetic(L, :) = angle(H_syn) * 180/pi;  % Model phase (already aligned)
+        end
+    end
+
+    fprintf('Generated %d synthetic points for 36 curves\n', num_synthetic);
+
+    % Combine original and synthetic data
+    W_combined = sort([W(:); freq_synthetic_Hz(:)]);
+    num_freq_combined = length(W_combined);
+    w_k_combined = W_combined * 2 * pi;
+
+    % Create combined H_mag and H_phase matrices: 36 x num_freq_combined
+    H_mag_combined = zeros(36, num_freq_combined);
+    H_phase_combined = zeros(36, num_freq_combined);
+
+    for L = 1:36
+        i = ceil(L/6);
+        j = mod(L-1, 6) + 1;
+
+        % Original data (use offset-removed phase!)
+        mag_orig = squeeze(H_mag(i, j, :))';
+        phase_orig = squeeze(H_phase_offset_removed(i, j, :))';  % Use preprocessed phase
+
+        % Combine and sort by frequency
+        mag_all = [mag_orig, H_mag_synthetic(L, :)];
+        phase_all = [phase_orig, H_phase_synthetic(L, :)];
+        freq_all = [W(:); freq_synthetic_Hz(:)];
+
+        [~, sort_idx] = sort(freq_all);
+        H_mag_combined(L, :) = mag_all(sort_idx);
+        H_phase_combined(L, :) = phase_all(sort_idx);
+    end
+
+    fprintf('Combined data: %d original + %d synthetic = %d total points\n', ...
+            num_freq, num_synthetic, num_freq_combined);
+
+    % Use combined data for multiple curve fitting
+    h_Lk = H_mag_combined;
+    phi_Lk = H_phase_combined * pi / 180;
+    w_k_multi = w_k_combined;
+    num_freq_multi = num_freq_combined;
+
+else
+    % Use original data only
+    fprintf('\n=== Using Original Data Only (No Synthetic Points) ===\n');
+
+    % Reshape H_mag from 6x6x19 to 36x19
+    h_Lk = zeros(36, num_freq);
+    for i = 1:6
+        for j = 1:6
+            idx = (i-1)*6 + j;
+            h_Lk(idx, :) = squeeze(H_mag(i, j, :));
+        end
+    end
+
+    % Reshape H_phase_offset_removed from 6x6x19 to 36x19 (use preprocessed phase!)
+    phi_Lk = zeros(36, num_freq);
+    for i = 1:6
+        for j = 1:6
+            idx = (i-1)*6 + j;
+            phi_Lk(idx, :) = squeeze(H_phase_offset_removed(i, j, :)) * pi / 180;
+        end
+    end
+
+    w_k_multi = w_k;
+    num_freq_multi = num_freq;
+end
+
 %% Multiple curve fitting with 2x2 block matrix
-
-% Reshape H_mag from 6x6x19 to 36x19
-h_Lk = zeros(36, num_freq);
-for i = 1:6
-    for j = 1:6
-        idx = (i-1)*6 + j;
-        h_Lk(idx, :) = squeeze(H_mag(i, j, :));
-    end
-end
-
-% Reshape H_phase from 6x6x19 to 36x19
-phi_Lk = zeros(36, num_freq);
-for i = 1:6
-    for j = 1:6
-        idx = (i-1)*6 + j;
-        phi_Lk(idx, :) = squeeze(H_phase_offset_removed(i, j, :)) * pi / 180;
-    end
-end
 
 sin_phi_Lk = sin(phi_Lk);
 cos_phi_Lk = cos(phi_Lk);
 
-% === Weighting function ===
-weight_k = 1 ./ (1 + (w_k.^2 / wc_multi^2)).^p_multi;
+% === Weighting function (use multi freq vector) ===
+weight_k = 1 ./ (1 + (w_k_multi.^2 / wc_multi^2)).^p_multi;
 
 fprintf('\n=== Multiple Curve Fitting (2x2 Block Matrix, Weighted) ===\n');
 fprintf('Weighting: w(ω) = 1/(1+(ω²/ωc²))^p, ωc=%.2f rad/s (%.2f Hz), p=%.1f\n', ...
@@ -236,14 +347,14 @@ fprintf('Weighting: w(ω) = 1/(1+(ω²/ωc²))^p, ωc=%.2f rad/s (%.2f Hz), p=%.
 % === Build elements for 2x2 block matrix ===
 % a11: Σ_k w(ω_k) (Σ_ℓ h²_ℓk) ω²_k
 a11 = 0;
-for k = 1:num_freq
+for k = 1:num_freq_multi
     sum_h2 = sum(h_Lk(:, k).^2);  % Σ_ℓ h²_ℓk
-    a11 = a11 + weight_k(k) * sum_h2 * w_k(k)^2;
+    a11 = a11 + weight_k(k) * sum_h2 * w_k_multi(k)^2;
 end
 
 % a22: Σ_k w(ω_k) (Σ_ℓ h²_ℓk)
 a22 = 0;
-for k = 1:num_freq
+for k = 1:num_freq_multi
     sum_h2 = sum(h_Lk(:, k).^2);
     a22 = a22 + weight_k(k) * sum_h2;
 end
@@ -251,15 +362,15 @@ end
 % v1: [a13, a14, ..., a1(2+m)]', where a1(2+ℓ) = Σ_k w(ω_k) h_ℓk s_ℓk ω_k
 v1 = zeros(36, 1);
 for L = 1:36
-    for k = 1:num_freq
-        v1(L) = v1(L) + weight_k(k) * h_Lk(L, k) * sin_phi_Lk(L, k) * w_k(k);
+    for k = 1:num_freq_multi
+        v1(L) = v1(L) + weight_k(k) * h_Lk(L, k) * sin_phi_Lk(L, k) * w_k_multi(k);
     end
 end
 
 % v2: [a23, a24, ..., a2(2+m)]', where a2(2+ℓ) = -Σ_k w(ω_k) h_ℓk c_ℓk
 v2 = zeros(36, 1);
 for L = 1:36
-    for k = 1:num_freq
+    for k = 1:num_freq_multi
         v2(L) = v2(L) - weight_k(k) * h_Lk(L, k) * cos_phi_Lk(L, k);
     end
 end
@@ -267,17 +378,17 @@ end
 % yb: [y3, y4, ..., y(2+m)]', where y(2+ℓ) = -Σ_k w(ω_k) h_ℓk c_ℓk ω²_k
 yb = zeros(36, 1);
 for L = 1:36
-    for k = 1:num_freq
-        yb(L) = yb(L) - weight_k(k) * h_Lk(L, k) * cos_phi_Lk(L, k) * w_k(k)^2;
+    for k = 1:num_freq_multi
+        yb(L) = yb(L) - weight_k(k) * h_Lk(L, k) * cos_phi_Lk(L, k) * w_k_multi(k)^2;
     end
 end
 
 % y1, y2
 y1 = 0;
 y2 = 0;
-for k = 1:num_freq
+for k = 1:num_freq_multi
     sum_h2 = sum(h_Lk(:, k).^2);
-    y2 = y2 + weight_k(k) * sum_h2 * w_k(k)^2;
+    y2 = y2 + weight_k(k) * sum_h2 * w_k_multi(k)^2;
 end
 
 % === Total weight (effective sample count) ===
@@ -498,6 +609,25 @@ if PLOT_MULTI_CURVE
                 'DisplayName', sprintf('Channel %d', ch));
         end
 
+        % Plot synthetic data points if enabled
+        if ENABLE_SYNTHETIC_POINTS
+            for ch = 1:6
+                L = (ch-1)*6 + excited_ch;
+
+                % Extract synthetic points for this curve
+                h_syn = H_mag_synthetic(L, :);
+                dc_gain_theoretical = B(ch, excited_ch);
+
+                % Normalize by B matrix
+                h_syn_norm = h_syn / dc_gain_theoretical;
+                h_syn_db = 20*log10(h_syn_norm);
+
+                semilogx(freq_synthetic_Hz, h_syn_db, 'd', 'Color', channel_colors(ch), ...
+                    'MarkerSize', 8, 'LineWidth', 2, 'MarkerFaceColor', 'none', ...
+                    'HandleVisibility', 'off');  % Hide from legend
+            end
+        end
+
         % Plot single model curve (normalized)
         H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
         H_model_norm = H_model / (A2/A2);
@@ -508,12 +638,18 @@ if PLOT_MULTI_CURVE
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
 
         set(gca, axis_props{:}, font_props{:});
-        ylim([-10, 3]);
+        ylim([-10, 1]);
 
         ax = gca;
         ax.XAxis.LineWidth = 3;
         ax.YAxis.LineWidth = 3;
         box on;
+
+        % Add data source legend in bottom-left corner
+        if ENABLE_SYNTHETIC_POINTS
+            text(0.15, -9, 'o: Measured   \diamond: Synthetic', ...
+                'FontSize', 18, 'FontWeight', 'bold', 'Color', [0.3 0.3 0.3]);
+        end
 
         % === Phase Plot ===
         subplot(2, 1, 2);
@@ -525,6 +661,20 @@ if PLOT_MULTI_CURVE
             semilogx(W, phi, 'o-', 'Color', channel_colors(ch), ...
                 'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
                 'DisplayName', sprintf('Channel %d', ch));
+        end
+
+        % Plot synthetic phase points if enabled
+        if ENABLE_SYNTHETIC_POINTS
+            for ch = 1:6
+                L = (ch-1)*6 + excited_ch;
+
+                % Extract synthetic phase for this curve
+                phi_syn = H_phase_synthetic(L, :);
+
+                semilogx(freq_synthetic_Hz, phi_syn, 'd', 'Color', channel_colors(ch), ...
+                    'MarkerSize', 8, 'LineWidth', 2, 'MarkerFaceColor', 'none', ...
+                    'HandleVisibility', 'off');  % Hide from legend
+            end
         end
 
         % Plot single model phase
@@ -544,6 +694,12 @@ if PLOT_MULTI_CURVE
         ax.XAxis.LineWidth = 3;
         ax.YAxis.LineWidth = 3;
         box on;
+
+        % Add data source legend in bottom-left corner
+        if ENABLE_SYNTHETIC_POINTS
+            text(0.15, -170, 'o: Measured   \diamond: Synthetic', ...
+                'FontSize', 18, 'FontWeight', 'bold', 'Color', [0.3 0.3 0.3]);
+        end
 
         % Title
         sgtitle(sprintf('P%d Excitation - Weighted (ωc=%.1f Hz, p=%.1f)', ...
