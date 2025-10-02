@@ -1,7 +1,8 @@
 % W: 1x19 frequency vector (Hz)
 % H_mag: 6x6x19 linear magnitude matrix
 % H_phase: 6x6x19 phase matrix
-
+% 
+% This version add weighting
 clear; clc;
 
 %% ========== CURVE FITTING PARAMETERS ==========
@@ -11,27 +12,31 @@ ENABLE_PARAM_COMPARISON = true;  % true: compare multiple parameters, false: sin
 
 % If ENABLE_PARAM_COMPARISON = false, use these parameters:
 p_single = 1;                 % Weighting exponent (0.5 or 1)
-wc_single_Hz = 5;             % Cutoff frequency (Hz) for low-pass weighting
+wc_single_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting
 
 % If ENABLE_PARAM_COMPARISON = true, define parameter sets to compare:
 % Each row: [p, wc_Hz]
 param_sets_single = [
     0.5, 1e10;   % Almost no weighting (baseline)
     0.5, 50;     
+    0.5, 80;     
     0.5, 100;    
-    0.5, 200;    
+    0.5, 200;
+    1, 100;
+    1, 200;
 ];
 
-excited_channel = 5;          % Input channel (excitation applied at this channel)
 channel = 5;                  % Output channel (response measured at this channel)
+excited_channel = 3;          % Input channel (excitation applied at this channel)
 
 % Multiple curve fitting weighting
-p_multi = 1;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 5;              % Cutoff frequency (Hz) for low-pass weighting
+p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
+wc_multi_Hz = 200;              % Cutoff frequency (Hz) for low-pass weighting
 
 % Plot control switches
-PLOT_ONE_CURVE = true;       % Plot single curve Bode
-PLOT_MULTI_CURVE = false;      % Plot multiple curves Bode
+PLOT_ONE_CURVE = false;       % Plot single curve Bode
+PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
+MULTI_CURVE_EXCITED_CHANNELS = [5];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
 % ================================================
 
@@ -184,7 +189,7 @@ else
     fprintf('b  = %.6f\n', b);
 end
 
-%% Multiple curve fitting with 2x2 block matrix (PDF Page 3)
+%% Multiple curve fitting with 2x2 block matrix
 
 % Reshape H_mag from 6x6x19 to 36x19
 h_Lk = zeros(36, num_freq);
@@ -324,12 +329,12 @@ if PLOT_ONE_CURVE
         hold on;
 
         % Plot measured data
-        semilogx(W, h_db_raw, 'ko', 'MarkerSize', 12, 'LineWidth', 2, ...
-            'MarkerFaceColor', 'w', 'DisplayName', 'Measured');
+        semilogx(W, h_db_raw, 'ko', 'MarkerSize', 12, 'LineWidth', 3, ...
+            'MarkerFaceColor', 'w');
 
         % Plot each parameter's model
-        colors = {[1 0 0], [0 0.7 0], [0 0 1], [1 0 1]};
-        line_styles = {'-', '--', '-.', ':'};
+        colors = {[1 0 0], [0 0.7 0], [0 0 1], [1 0 1], [0 0 0], [0 0.8 0.8], [0.6 0.4 0.2], [0.5 0.5 0.5]};
+        line_styles = {'-', '--', '-.', ':', '-', '--', '-.', ':'};
 
         for idx = 1:num_params
             H_model_smooth = b_all(idx) ./ (s_smooth.^2 + a1_all(idx)*s_smooth + a2_all(idx));
@@ -342,7 +347,6 @@ if PLOT_ONE_CURVE
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
         y_min = min(h_db_raw) - 5;
@@ -358,7 +362,8 @@ if PLOT_ONE_CURVE
         hold on;
 
         % Plot measured phase
-        semilogx(W, phi_k*180/pi, 'ko', 'MarkerSize', 12, 'LineWidth', 2, 'MarkerFaceColor', 'w');
+        semilogx(W, phi_k*180/pi, 'ko', 'MarkerSize', 12, 'LineWidth', 3, ...
+            'MarkerFaceColor', 'w', 'DisplayName', 'Measured');
 
         % Plot each parameter's phase
         for idx = 1:num_params
@@ -366,11 +371,13 @@ if PLOT_ONE_CURVE
             H_model_phase = angle(H_model_smooth) * 180/pi;
 
             semilogx(freq_smooth, H_model_phase, ...
-                'Color', colors{idx}, 'LineStyle', line_styles{idx}, 'LineWidth', 2.5);
+                'Color', colors{idx}, 'LineStyle', line_styles{idx}, 'LineWidth', 2.5, ...
+                'DisplayName', sprintf('p=%.1f,ωc=%g', param_sets_single(idx,:)));
         end
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
         ylim([-180, 5]);
@@ -452,7 +459,7 @@ if PLOT_MULTI_CURVE
     freq_smooth = logspace(log10(min(W)), log10(max(W)), 200);
     s_smooth = 1j * 2 * pi * freq_smooth;
 
-    for excited_ch = 1:6
+    for excited_ch = MULTI_CURVE_EXCITED_CHANNELS
         figure('Name', sprintf('P%d Excitation - Weighted (ωc=%.1f Hz, p=%.1f)', excited_ch, wc_multi_Hz, p_multi), ...
                'Position', [100 + (excited_ch-1)*150, 100, 900, 720]);
 
@@ -479,6 +486,11 @@ if PLOT_MULTI_CURVE
         H_model_norm = H_model / (A2/A2);
         semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
             'DisplayName', 'Model');
+
+        % Plot ωc cutoff frequency line
+        xline(wc_multi_Hz, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 2.5, ...
+            'Label', sprintf('ω_c=%.1f Hz', wc_multi_Hz), ...
+            'LabelOrientation', 'horizontal', 'FontSize', 20, 'FontWeight', 'bold');
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
@@ -509,6 +521,11 @@ if PLOT_MULTI_CURVE
         semilogx(freq_smooth, H_model_phase, 'k-', 'LineWidth', 3, ...
             'DisplayName', 'Model');
 
+        % Plot ωc cutoff frequency line
+        xline(wc_multi_Hz, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 2.5, ...
+            'Label', sprintf('ω_c=%.1f Hz', wc_multi_Hz), ...
+            'LabelOrientation', 'horizontal', 'FontSize', 20, 'FontWeight', 'bold');
+
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
         legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
@@ -527,5 +544,6 @@ if PLOT_MULTI_CURVE
     end
 
     fprintf('\n=== Plots Generated ===\n');
-    fprintf('Generated 6 figures (P1-P6) with weighted fitting results\n');
+    fprintf('Generated %d figures (P%s) with weighted fitting results\n', ...
+        length(MULTI_CURVE_EXCITED_CHANNELS), mat2str(MULTI_CURVE_EXCITED_CHANNELS));
 end
