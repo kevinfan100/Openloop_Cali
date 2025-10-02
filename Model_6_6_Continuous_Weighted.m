@@ -8,10 +8,10 @@ clear; clc;
 %% ========== CURVE FITTING PARAMETERS ==========
 
 % Single curve fitting - Parameter Comparison
-ENABLE_PARAM_COMPARISON = true;  % true: compare multiple parameters, false: single parameter
+ENABLE_PARAM_COMPARISON = false;  % true: compare multiple parameters, false: single parameter
 
 % If ENABLE_PARAM_COMPARISON = false, use these parameters:
-p_single = 1;                 % Weighting exponent (0.5 or 1)
+p_single = 0.5;                 % Weighting exponent (0.5 or 1)
 wc_single_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting
 
 % If ENABLE_PARAM_COMPARISON = true, define parameter sets to compare:
@@ -26,17 +26,17 @@ param_sets_single = [
     1, 200;
 ];
 
-channel = 5;                  % Output channel (response measured at this channel)
-excited_channel = 3;          % Input channel (excitation applied at this channel)
+channel = 4;                  % Output channel (response measured at this channel)
+excited_channel = 4;          % Input channel (excitation applied at this channel)
 
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 200;              % Cutoff frequency (Hz) for low-pass weighting
+wc_multi_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
 
 % Plot control switches
-PLOT_ONE_CURVE = false;       % Plot single curve Bode
+PLOT_ONE_CURVE = true;       % Plot single curve Bode
 PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
-MULTI_CURVE_EXCITED_CHANNELS = [5];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
+MULTI_CURVE_EXCITED_CHANNELS = [1, 2, 3, 4, 5, 6];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
 % ================================================
 
@@ -81,13 +81,27 @@ clear file_idx script_name num_files ME
 w_k = W(:) * 2 * pi;  % (rad/s)
 n = num_freq;
 
+%% Phase Offset Removal at Source (Applied to H_phase)
+% Create a new variable with offset removed (preserve original H_phase)
+H_phase_offset_removed = H_phase;  % Copy original data
+
+[~, min_freq_idx] = min(w_k);
+for i = 1:6
+    for j = 1:6
+        phase_data = squeeze(H_phase(i, j, :));  % in degrees
+        phase_offset = phase_data(min_freq_idx);  % offset at minimum frequency
+        H_phase_offset_removed(i, j, :) = phase_data - phase_offset;
+    end
+end
+fprintf('\n[Phase Offset Removal] Applied to H_phase at source (ω_min)\n');
+
 %% Convert cutoff frequency for multiple curves from Hz to rad/s
 wc_multi = wc_multi_Hz * 2 * pi;    % rad/s
 
 %% One curve fitting
 
 h_k = squeeze(H_mag(channel, excited_channel, :));
-phi_k = squeeze(H_phase(channel, excited_channel, :)) * pi / 180;
+phi_k = squeeze(H_phase_offset_removed(channel, excited_channel, :)) * pi / 180;
 
 sin_phi_k = sin(phi_k);
 cos_phi_k = cos(phi_k);
@@ -205,7 +219,7 @@ phi_Lk = zeros(36, num_freq);
 for i = 1:6
     for j = 1:6
         idx = (i-1)*6 + j;
-        phi_Lk(idx, :) = squeeze(H_phase(i, j, :)) * pi / 180;
+        phi_Lk(idx, :) = squeeze(H_phase_offset_removed(i, j, :)) * pi / 180;
     end
 end
 
@@ -266,15 +280,18 @@ for k = 1:num_freq
     y2 = y2 + weight_k(k) * sum_h2 * w_k(k)^2;
 end
 
+% === Total weight (effective sample count) ===
+W_total = sum(weight_k);  % = Σ w(ωₖ)
+
 % === Build 2x2 block matrix (PDF Page 3 highlighted equation) ===
 A_2x2 = [
-    a11 - (1/n)*v1'*v1,     -(1/n)*v1'*v2;
-    -(1/n)*v2'*v1,          a22 - (1/n)*v2'*v2
+    a11 - (1/W_total)*v1'*v1,     -(1/W_total)*v1'*v2;
+    -(1/W_total)*v2'*v1,          a22 - (1/W_total)*v2'*v2
 ];
 
 Y_2x2 = [
-    y1 - (1/n)*v1'*yb;
-    y2 - (1/n)*v2'*yb
+    y1 - (1/W_total)*v1'*yb;
+    y2 - (1/W_total)*v2'*yb
 ];
 
 % Check matrix condition (optional)
@@ -288,7 +305,7 @@ A1 = X_2x2(1);
 A2 = X_2x2(2);
 
 % === Solve for b vector and B matrix ===
-b_vec = (1/n) * (yb - A1*v1 - A2*v2);  % 36x1
+b_vec = (1/W_total) * (yb - A1*v1 - A2*v2);  % 36x1
 
 B = zeros(6, 6);
 for i = 1:6
@@ -487,16 +504,11 @@ if PLOT_MULTI_CURVE
         semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
             'DisplayName', 'Model');
 
-        % Plot ωc cutoff frequency line
-        xline(wc_multi_Hz, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 2.5, ...
-            'Label', sprintf('ω_c=%.1f Hz', wc_multi_Hz), ...
-            'LabelOrientation', 'horizontal', 'FontSize', 20, 'FontWeight', 'bold');
-
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
 
         set(gca, axis_props{:}, font_props{:});
-        ylim([-10, 10]);
+        ylim([-10, 3]);
 
         ax = gca;
         ax.XAxis.LineWidth = 3;
@@ -509,7 +521,7 @@ if PLOT_MULTI_CURVE
 
         % Plot measured phase
         for ch = 1:6
-            phi = squeeze(H_phase(ch, excited_ch, :));
+            phi = squeeze(H_phase_offset_removed(ch, excited_ch, :));
             semilogx(W, phi, 'o-', 'Color', channel_colors(ch), ...
                 'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
                 'DisplayName', sprintf('Channel %d', ch));
@@ -520,11 +532,6 @@ if PLOT_MULTI_CURVE
         H_model_phase = angle(H_model) * 180/pi;
         semilogx(freq_smooth, H_model_phase, 'k-', 'LineWidth', 3, ...
             'DisplayName', 'Model');
-
-        % Plot ωc cutoff frequency line
-        xline(wc_multi_Hz, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 2.5, ...
-            'Label', sprintf('ω_c=%.1f Hz', wc_multi_Hz), ...
-            'LabelOrientation', 'horizontal', 'FontSize', 20, 'FontWeight', 'bold');
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
