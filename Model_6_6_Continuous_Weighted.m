@@ -31,7 +31,7 @@ param_sets_single = [
 
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 1;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
+wc_multi_Hz = 0.1;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
 
 % Plot control switches
 PLOT_ONE_CURVE = false;       % Plot single curve Bode
@@ -321,6 +321,301 @@ fprintf('\nTransfer Function Matrix:\n');
 fprintf('H(s) = (%.4f/(s^2 + %.4f*s + %.4f)) * B\n', A2, A1, A2);
 fprintf('\nB Matrix:\n');
 disp(B);
+
+%% ========== DISCRETIZATION AND LATEX OUTPUT ==========
+
+% 採樣時間
+T_sample = 1e-5;  % 10 µs
+
+% 修正 B 矩陣符號（非對角線加負號）
+B_modified = B;
+for i = 1:num_channels
+    for j = 1:num_channels
+        if i ~= j
+            B_modified(i,j) = -B(i,j);
+        end
+    end
+end
+
+fprintf('\n=== 離散化轉移函數 (ZOH, T=%.0e s) ===\n', T_sample);
+
+% 建立連續時間轉移函數
+num_s = A2;
+den_s = [1, A1, A2];
+H_continuous = tf(num_s, den_s);
+
+% 使用 ZOH 方法離散化
+H_discrete = c2d(H_continuous, T_sample, 'zoh');
+
+% 提取離散轉移函數的係數
+[num_z, den_z] = tfdata(H_discrete, 'v');
+
+% 正規化分母（確保首項為1）
+den_z = den_z / den_z(1);
+num_z = num_z / den_z(1);
+
+% 顯示離散轉移函數（標準形式）
+fprintf('標準形式係數：\n');
+fprintf('  分子 [b0, b1]: [%.6e, %.6e]\n', num_z(2), num_z(3));
+fprintf('  分母 [1, a1, a2]: [1, %.6e, %.6e]\n', den_z(2), den_z(3));
+
+% 計算因式分解形式
+b0_val = num_z(2);
+b1_val = num_z(3);
+b0_exp_val = floor(log10(abs(b0_val)));
+b0_mantissa_val = b0_val / 10^b0_exp_val;
+b1_over_b0_val = b1_val / b0_val;
+
+a1_val = den_z(2);
+a2_val = den_z(3);
+poles_z_val = roots([1, a1_val, a2_val]);  % 正確的 Z 域極點
+
+fprintf('\nZ 域極點（完整精度）：\n');
+fprintf('  z1 = %.8f + %.8fi, |z1| = %.8f\n', real(poles_z_val(1)), imag(poles_z_val(1)), abs(poles_z_val(1)));
+fprintf('  z2 = %.8f + %.8fi, |z2| = %.8f\n', real(poles_z_val(2)), imag(poles_z_val(2)), abs(poles_z_val(2)));
+
+% 判斷是否為共軛複數對
+if abs(imag(poles_z_val(1))) > 1e-8
+    fprintf('  類型: 共軛複數極點對（有振盪特性）\n');
+else
+    fprintf('  類型: 實數極點\n');
+end
+
+if all(abs(poles_z_val) < 1)
+    fprintf('  ✓ 系統穩定 (所有極點在單位圓內)\n');
+else
+    fprintf('  ✗ 系統不穩定 (有極點在單位圓外)\n');
+end
+
+fprintf('\n因式分解形式（近似顯示）：\n');
+fprintf('  分子: %.4f × 10^%d × (1 + %.4f z⁻¹)\n', b0_mantissa_val, b0_exp_val, b1_over_b0_val);
+if abs(imag(poles_z_val(1))) > 1e-8
+    % 共軛複數根：保留完整形式
+    fprintf('  分母: (1 - (%.6f%+.6fi) z⁻¹)(1 - (%.6f%+.6fi) z⁻¹)\n', ...
+        real(poles_z_val(1)), imag(poles_z_val(1)), ...
+        real(poles_z_val(2)), imag(poles_z_val(2)));
+else
+    % 實數根
+    fprintf('  分母: (1 - %.6f z⁻¹)(1 - %.6f z⁻¹)\n', poles_z_val(1), poles_z_val(2));
+end
+
+% 固定 Amplifier gain matrix（使用指定數值）
+k_A = diag([0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610]);
+
+fprintf('\nAmplifier Gain Matrix (對角線):\n');
+disp(k_A);
+
+%% === 生成 LaTeX 程式碼 ===
+
+latex_output = {};
+
+% 標題
+latex_output{end+1} = '% ============================================';
+latex_output{end+1} = '% Transfer Function LaTeX Output';
+latex_output{end+1} = sprintf('%% Generated: %s', datestr(now));
+latex_output{end+1} = '% ============================================';
+latex_output{end+1} = '';
+
+% 1. 連續時間轉移函數 H(s)
+latex_output{end+1} = '% === Continuous-Time Transfer Function ===';
+latex_output{end+1} = '\mathbf{H}(s) = \frac{';
+latex_output{end+1} = sprintf('%.4f \\times 10^{%d}', A2/10^floor(log10(abs(A2))), floor(log10(abs(A2))));
+latex_output{end+1} = '}{';
+latex_output{end+1} = sprintf('s^2 + %.4f \\times 10^{%d} s + %.4f \\times 10^{%d}', ...
+    A1/10^floor(log10(abs(A1))), floor(log10(abs(A1))), ...
+    A2/10^floor(log10(abs(A2))), floor(log10(abs(A2))));
+latex_output{end+1} = '} \\mathbf{B}';
+latex_output{end+1} = '';
+
+% 2. 離散時間轉移函數 H(z^-1) - 因式分解形式
+latex_output{end+1} = '% === Discrete-Time Transfer Function (ZOH) - Factored Form ===';
+latex_output{end+1} = sprintf('%% Sampling Time: T = %.0e s', T_sample);
+
+% 分子因式分解：b0 * (1 + (b1/b0)*z^-1)
+b0 = num_z(2);
+b1 = num_z(3);
+b0_exp = floor(log10(abs(b0)));
+b0_mantissa = b0 / 10^b0_exp;
+b1_over_b0 = b1 / b0;
+
+% 分母因式分解：(1 + a1*z^-1 + a2*z^-2) = (1 - z1*z^-1)(1 - z2*z^-1)
+% 其中 z1, z2 是 Z 域極點，滿足 z^2 + a1*z + a2 = 0
+a1 = den_z(2);
+a2 = den_z(3);
+
+% 正確的極點計算：z^2 + a1*z + a2 = 0
+poles_z = roots([1, a1, a2]);  % 真正的 Z 域極點
+z1 = poles_z(1);
+z2 = poles_z(2);
+
+% 對於 z^-1 形式：(1 - z1*z^-1) 中的係數就是極點本身
+r1 = z1;  % z^-1 係數
+r2 = z2;
+
+% 組裝 LaTeX（根據極點類型選擇格式）
+if abs(imag(z1)) > 1e-6
+    % 共軛複數極點：使用二次式（避免虛數）
+    latex_output{end+1} = '% 因式分解形式（複數極點，使用二次式）';
+    latex_output{end+1} = sprintf([...
+        '\\mathbf{H}(z^{-1}) = z^{-1} \\frac{' ...
+        '%.4f \\times 10^{%d} \\times (1 + %.4f z^{-1})' ...
+        '}{' ...
+        '1 + %.6f z^{-1} + %.6f z^{-2}' ...
+        '} \\mathbf{B}'], ...
+        b0_mantissa, b0_exp, b1_over_b0, a1, a2);
+
+    % 同時提供複數因式（註解）
+    latex_output{end+1} = sprintf([...
+        '%% 複數因式分解: (1 - (%.6f%+.6fi) z^{-1})(1 - (%.6f%+.6fi) z^{-1})'], ...
+        real(r1), imag(r1), real(r2), imag(r2));
+else
+    % 實數極點：因式分解形式
+    latex_output{end+1} = '% 因式分解形式（實數極點）';
+    latex_output{end+1} = sprintf([...
+        '\\mathbf{H}(z^{-1}) = z^{-1} \\frac{' ...
+        '%.4f \\times 10^{%d} \\times (1 + %.4f z^{-1})' ...
+        '}{' ...
+        '(1 - %.6f z^{-1})(1 - %.6f z^{-1})' ...
+        '} \\mathbf{B}'], ...
+        b0_mantissa, b0_exp, b1_over_b0, real(r1), real(r2));
+end
+
+% 同時加入極點資訊註解
+latex_output{end+1} = sprintf('%% Z-domain poles: z1 = %.8f %+.8fi, z2 = %.8f %+.8fi', ...
+    real(z1), imag(z1), real(z2), imag(z2));
+latex_output{end+1} = sprintf('%% Pole magnitudes: |z1| = %.8f, |z2| = %.8f', abs(z1), abs(z2));
+latex_output{end+1} = '';
+
+% 3. B 矩陣（修正符號後）
+latex_output{end+1} = '% === B Matrix (off-diagonal elements negated) ===';
+latex_output{end+1} = '% 格式1: 多行格式（適合 LaTeX 文檔）';
+latex_output{end+1} = '\mathbf{B} = \begin{bmatrix}';
+for i = 1:num_channels
+    row_str = '';
+    for j = 1:num_channels
+        if j == 1
+            row_str = sprintf('%.4f', B_modified(i,j));
+        else
+            row_str = sprintf('%s & %.4f', row_str, B_modified(i,j));
+        end
+    end
+    if i < num_channels
+        latex_output{end+1} = sprintf('%s \\\\', row_str);
+    else
+        latex_output{end+1} = row_str;
+    end
+end
+latex_output{end+1} = '\end{bmatrix}';
+latex_output{end+1} = '';
+
+% 格式2: 單行格式（適合 Word 方程式編輯器）
+latex_output{end+1} = '% 格式2: 單行格式（複製到 Word 方程式編輯器）';
+latex_output{end+1} = '% Word 需要在符號間加空格，並使用 @ 代替 \\';
+
+% 方法A: 使用 ■() 矩陣符號（Word 標準格式）
+word_format_B = 'B=[■(';
+for i = 1:num_channels
+    for j = 1:num_channels
+        if j > 1
+            word_format_B = sprintf('%s&%.4f', word_format_B, B_modified(i,j));
+        else
+            word_format_B = sprintf('%s%.4f', word_format_B, B_modified(i,j));
+        end
+    end
+    if i < num_channels
+        word_format_B = sprintf('%s@', word_format_B);
+    end
+end
+word_format_B = sprintf('%s)]', word_format_B);
+latex_output{end+1} = word_format_B;
+
+% 方法B: 使用 \matrix + 方括號
+single_line_B = 'B=[\begin{matrix}';
+for i = 1:num_channels
+    for j = 1:num_channels
+        if j == 1
+            single_line_B = sprintf('%s%.4f', single_line_B, B_modified(i,j));
+        else
+            single_line_B = sprintf('%s & %.4f', single_line_B, B_modified(i,j));
+        end
+    end
+    if i < num_channels
+        single_line_B = sprintf('%s @ ', single_line_B);
+    end
+end
+single_line_B = sprintf('%s\\end{matrix}]', single_line_B);
+latex_output{end+1} = single_line_B;
+latex_output{end+1} = '';
+
+% 4. Amplifier Gain Matrix k_A
+latex_output{end+1} = '% === Amplifier Gain Matrix ===';
+latex_output{end+1} = '% 格式1: 多行格式（適合 LaTeX 文檔）';
+latex_output{end+1} = 'k_A = \begin{bmatrix}';
+for i = 1:num_channels
+    row_str = '';
+    for j = 1:num_channels
+        if j == 1
+            row_str = sprintf('%.4f', k_A(i,j));
+        else
+            row_str = sprintf('%s & %.4f', row_str, k_A(i,j));
+        end
+    end
+    if i < num_channels
+        latex_output{end+1} = sprintf('%s \\\\', row_str);
+    else
+        latex_output{end+1} = row_str;
+    end
+end
+latex_output{end+1} = '\end{bmatrix}';
+latex_output{end+1} = '';
+
+% 格式2: 單行格式（適合 Word 方程式編輯器）
+latex_output{end+1} = '% 格式2: 單行格式（複製到 Word 方程式編輯器）';
+latex_output{end+1} = '% Word 需要在符號間加空格，並使用 @ 代替 \\';
+
+% 方法A: 使用 ■() 矩陣符號（Word 標準格式）
+word_format_kA = 'k_A=[■(';
+for i = 1:num_channels
+    for j = 1:num_channels
+        if j > 1
+            word_format_kA = sprintf('%s&%.4f', word_format_kA, k_A(i,j));
+        else
+            word_format_kA = sprintf('%s%.4f', word_format_kA, k_A(i,j));
+        end
+    end
+    if i < num_channels
+        word_format_kA = sprintf('%s@', word_format_kA);
+    end
+end
+word_format_kA = sprintf('%s)]', word_format_kA);
+latex_output{end+1} = word_format_kA;
+
+% 方法B: 使用 \matrix + 方括號
+single_line_kA = 'k_A=[\begin{matrix}';
+for i = 1:num_channels
+    for j = 1:num_channels
+        if j == 1
+            single_line_kA = sprintf('%s%.4f', single_line_kA, k_A(i,j));
+        else
+            single_line_kA = sprintf('%s & %.4f', single_line_kA, k_A(i,j));
+        end
+    end
+    if i < num_channels
+        single_line_kA = sprintf('%s @ ', single_line_kA);
+    end
+end
+single_line_kA = sprintf('%s\\end{matrix}]', single_line_kA);
+latex_output{end+1} = single_line_kA;
+
+% 儲存到檔案
+output_filename = 'transfer_function_latex.txt';
+fid = fopen(output_filename, 'w');
+for i = 1:length(latex_output)
+    fprintf(fid, '%s\n', latex_output{i});
+end
+fclose(fid);
+
+fprintf('\n✓ LaTeX 程式碼已儲存至: %s\n', output_filename);
 
 
 
