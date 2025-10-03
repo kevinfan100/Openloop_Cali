@@ -31,12 +31,12 @@ excited_channel = 4;          % Input channel (excitation applied at this channe
 
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
+wc_multi_Hz = 1;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
 
 % Plot control switches
-PLOT_ONE_CURVE = true;       % Plot single curve Bode
+PLOT_ONE_CURVE = false;       % Plot single curve Bode
 PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
-MULTI_CURVE_EXCITED_CHANNELS = [1, 2, 3, 4, 5, 6];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
+MULTI_CURVE_EXCITED_CHANNELS = [1];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
 % ================================================
 
@@ -478,7 +478,7 @@ if PLOT_MULTI_CURVE
 
     for excited_ch = MULTI_CURVE_EXCITED_CHANNELS
         figure('Name', sprintf('P%d Excitation - Weighted (ωc=%.1f Hz, p=%.1f)', excited_ch, wc_multi_Hz, p_multi), ...
-               'Position', [100 + (excited_ch-1)*150, 100, 900, 720]);
+               'Position', [100 + (excited_ch-1)*150, 100, 1000, 900]);
 
         % === Magnitude Plot ===
         subplot(2, 1, 1);
@@ -508,7 +508,7 @@ if PLOT_MULTI_CURVE
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
 
         set(gca, axis_props{:}, font_props{:});
-        ylim([-10, 3]);
+        ylim([-30, 1]);
 
         ax = gca;
         ax.XAxis.LineWidth = 3;
@@ -535,10 +535,10 @@ if PLOT_MULTI_CURVE
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
-        ylim([-180, 5]);
+        ylim([-180, 1.5]);
 
         ax = gca;
         ax.XAxis.LineWidth = 3;
