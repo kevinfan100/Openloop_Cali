@@ -1,13 +1,15 @@
 % W: 1x19 frequency vector (Hz)
 % H_mag: 6x6x19 linear magnitude matrix
 % H_phase: 6x6x19 phase matrix
-% 
-% This version add weighting
+
 clear; clc;
 
 %% ========== CURVE FITTING PARAMETERS ==========
 
 % Single curve fitting - Parameter Comparison
+channel = 4;                  % Output channel (response measured at this channel)
+excited_channel = 4;          % Input channel (excitation applied at this channel)
+
 ENABLE_PARAM_COMPARISON = false;  % true: compare multiple parameters, false: single parameter
 
 % If ENABLE_PARAM_COMPARISON = false, use these parameters:
@@ -26,8 +28,6 @@ param_sets_single = [
     1, 200;
 ];
 
-channel = 4;                  % Output channel (response measured at this channel)
-excited_channel = 4;          % Input channel (excitation applied at this channel)
 
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
@@ -35,6 +35,7 @@ wc_multi_Hz = 1;             % Cutoff frequency (Hz) for low-pass weighting (opt
 
 % Plot control switches
 PLOT_ONE_CURVE = false;       % Plot single curve Bode
+
 PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
 MULTI_CURVE_EXCITED_CHANNELS = [1];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
@@ -203,7 +204,7 @@ else
     fprintf('b  = %.6f\n', b);
 end
 
-%% Multiple curve fitting with 2x2 block matrix
+%% Multiple curve fitting
 
 % Reshape H_mag from 6x6x19 to 36x19
 h_Lk = zeros(36, num_freq);
@@ -229,7 +230,7 @@ cos_phi_Lk = cos(phi_Lk);
 % === Weighting function ===
 weight_k = 1 ./ (1 + (w_k.^2 / wc_multi^2)).^p_multi;
 
-fprintf('\n=== Multiple Curve Fitting (2x2 Block Matrix, Weighted) ===\n');
+fprintf('\n=== Multiple Curve Fitting ===\n');
 fprintf('Weighting: w(ω) = 1/(1+(ω²/ωc²))^p, ωc=%.2f rad/s (%.2f Hz), p=%.1f\n', ...
         wc_multi, wc_multi_Hz, p_multi);
 
@@ -280,10 +281,10 @@ for k = 1:num_freq
     y2 = y2 + weight_k(k) * sum_h2 * w_k(k)^2;
 end
 
-% === Total weight (effective sample count) ===
+% === Total weight ===
 W_total = sum(weight_k);  % = Σ w(ωₖ)
 
-% === Build 2x2 block matrix (PDF Page 3 highlighted equation) ===
+% === Build 2x2 block matrix ===
 A_2x2 = [
     a11 - (1/W_total)*v1'*v1,     -(1/W_total)*v1'*v2;
     -(1/W_total)*v2'*v1,          a22 - (1/W_total)*v2'*v2
@@ -317,7 +318,7 @@ for i = 1:6
 end
 
 fprintf('\nTransfer Function Matrix:\n');
-fprintf('G(s) = (%.4f/(s^2 + %.4f*s + %.4f)) * B\n', A2, A1, A2);
+fprintf('H(s) = (%.4f/(s^2 + %.4f*s + %.4f)) * B\n', A2, A1, A2);
 fprintf('\nB Matrix:\n');
 disp(B);
 
