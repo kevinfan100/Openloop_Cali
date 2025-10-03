@@ -31,7 +31,7 @@ excited_channel = 4;          % Input channel (excitation applied at this channe
 
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 50;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
+wc_multi_Hz = 0.1;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
 
 % Synthetic point generation (for low-frequency augmentation)
 ENABLE_SYNTHETIC_POINTS = true;   % true: add synthetic low-freq points, false: use original data only
@@ -40,7 +40,7 @@ freq_synthetic_Hz = [0.2, 0.5, 2, 5];  % Additional low-frequency points to gene
 % Plot control switches
 PLOT_ONE_CURVE = false;       % Plot single curve Bode
 PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
-MULTI_CURVE_EXCITED_CHANNELS = [1, 2, 3, 4, 5, 6];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
+MULTI_CURVE_EXCITED_CHANNELS = [1];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
 % ================================================
 
