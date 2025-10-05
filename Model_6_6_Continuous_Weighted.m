@@ -1,10 +1,8 @@
-% W: 1x19 frequency vector (Hz)
-% H_mag: 6x6x19 linear magnitude matrix
-% H_phase: 6x6x19 phase matrix
-
+% TODO: 熟悉離散的動態行為，學一下怎麼控制這個系統，以直接設計的方法來設計控制器
+% TODO: Pic_all_result 要刪除或是加到gitignore
 clear; clc;
 
-%% ========== CURVE FITTING PARAMETERS ==========
+%% Curve fitting parameters
 
 % Single curve fitting - Parameter Comparison
 channel = 4;                  % Output channel (response measured at this channel)
@@ -28,18 +26,17 @@ param_sets_single = [
     1, 200;
 ];
 
-
 % Multiple curve fitting weighting
 p_multi = 0.5;                  % Weighting exponent (0.5 or 1)
-wc_multi_Hz = 0.1;             % Cutoff frequency (Hz) for low-pass weighting (optimal: no resonance, best low-freq match)
+wc_multi_Hz = 0.1;             % Cutoff frequency (Hz) for low-pass weighting
 
 % Plot control switches
 PLOT_ONE_CURVE = false;       % Plot single curve Bode
 
-PLOT_MULTI_CURVE = true;      % Plot multiple curves Bode
-MULTI_CURVE_EXCITED_CHANNELS = [1];  % Specify which P excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
+PLOT_MULTI_CURVE = false;      % Plot multiple curves Bode
+MULTI_CURVE_EXCITED_CHANNELS = [1];  % Specify which Pole excitations to plot (e.g., [1, 3, 5] for P1, P3, P5 only)
 
-% ================================================
+%% Read data from each file
 
 num_files = 6;
 num_channels = 6;
@@ -49,7 +46,6 @@ H_mag = zeros(num_channels, num_files, num_freq);
 H_phase = zeros(num_channels, num_files, num_freq);
 W = [];
 
-% Read data from each file
 for file_idx = 1:num_files
 
     script_name = sprintf('P%d', file_idx);
