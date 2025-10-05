@@ -31,11 +31,11 @@ num_freq = 19;              % Number of frequency points
 % --- Single Curve Fitting Parameters (for validation) ---
 % Used for testing individual transfer function fitting
 channel = 4;                        % Output channel index
-excited_channel = 4;                % Input channel index (excitation source)
+excited_channel = 1;                % Input channel index (excitation source)
 
 ENABLE_PARAM_COMPARISON = false;    % Enable parameter comparison mode
 p_single = 0.5;                     % Weighting exponent (0.5 or 1)
-wc_single_Hz = 50;                  % Cutoff frequency [Hz] for low-pass weighting
+wc_single_Hz = 10;                  % Cutoff frequency [Hz] for low-pass weighting
 
 % Parameter sets for comparison (when ENABLE_PARAM_COMPARISON = true)
 % Each row: [p, wc_Hz]
@@ -66,6 +66,10 @@ MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,
 
 OUTPUT_LATEX = true;                % Generate LaTeX output file
 LATEX_FILENAME = 'transfer_function_latex.txt';
+
+% --- 36-Channel Single Curve Fitting Control ---
+SAVE_ONE_CURVE_RESULTS = true;      % Save individual transfer function parameters
+ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
 %% SECTION 2: DATA LOADING
 
@@ -227,6 +231,62 @@ else
     fprintf('w(ω)=1/(1+(ω²/ωc²))^p, ωc=%.2f rad/s (%.2f Hz), p=%.1f\n', ...
             wc_single_rad, wc_single_Hz, p_single);
     fprintf('a1=%.6f, a2=%.6f, b=%.6f\n', a1, a2, b);
+end
+
+%% SECTION 4.5: BATCH SINGLE CURVE FITTING (36 Channels) [OPTIONAL]
+
+if SAVE_ONE_CURVE_RESULTS
+    fprintf('\n=== Batch Single Curve Fitting: 36 Channels ===\n');
+
+    % Initialize result structure
+    one_curve_results = struct();
+    one_curve_results.a1_matrix = zeros(6, 6);
+    one_curve_results.a2_matrix = zeros(6, 6);
+    one_curve_results.b_matrix  = zeros(6, 6);
+
+    % Use unified fitting parameters from SECTION 1
+    p_fit = p_single;        % line 36
+    wc_Hz = wc_single_Hz;    % line 37
+    wc_rad = wc_Hz * 2 * pi;
+
+    % Batch fitting loop
+    fprintf('Fitting parameters for 36 transfer functions...\n');
+    for i = 1:6  % Output channel
+        for j = 1:6  % Input channel (excitation)
+            % Extract frequency response data for channel pair (i,j)
+            h_k_ij = squeeze(H_mag(i, j, :));
+            phi_k_ij = squeeze(H_phase_offset_removed(i, j, :)) * pi / 180;
+
+            % Perform single curve fitting
+            [a1_ij, a2_ij, b_ij] = fit_single_tf(h_k_ij, phi_k_ij, w_k, p_fit, wc_rad);
+
+            % Store results
+            one_curve_results.a1_matrix(i, j) = a1_ij;
+            one_curve_results.a2_matrix(i, j) = a2_ij;
+            one_curve_results.b_matrix(i, j) = b_ij;
+        end
+    end
+
+    % Add metadata
+    one_curve_results.meta = struct(...
+        'date', datestr(now), ...
+        'p', p_fit, ...
+        'wc_Hz', wc_Hz, ...
+        'frequencies', W, ...
+        'num_channels', 6, ...
+        'description', '36-channel individual transfer functions (continuous)' ...
+    );
+
+    % Save to .mat file
+    save(ONE_CURVE_OUTPUT_FILE, 'one_curve_results');
+    fprintf('✓ Results saved to: %s\n', ONE_CURVE_OUTPUT_FILE);
+    fprintf('  - a1_matrix: 6×6 first-order coefficients\n');
+    fprintf('  - a2_matrix: 6×6 second-order coefficients\n');
+    fprintf('  - b_matrix:  6×6 numerator gains\n');
+    fprintf('  - Format: H_ij(s) = b(i,j) / (s² + a1(i,j)·s + a2(i,j))\n');
+else
+    fprintf('\n=== Batch Single Curve Fitting: SKIPPED ===\n');
+    fprintf('  (SAVE_ONE_CURVE_RESULTS = false)\n');
 end
 
 %% SECTION 5: MULTIPLE CURVE FITTING (Main Functionality)
@@ -450,11 +510,11 @@ if OUTPUT_LATEX
 
     % Denominator factorization: (1 + a1·z⁻¹ + a2·z⁻²) = (1 - z1·z⁻¹)(1 - z2·z⁻¹)
     % where z1, z2 are Z-domain poles satisfying z² + a1·z + a2 = 0
-    a1 = den_z(2);
-    a2 = den_z(3);
+    a1_z = den_z(2);
+    a2_z = den_z(3);
 
     % Compute Z-domain poles: z² + a1·z + a2 = 0
-    poles_z = roots([1, a1, a2]);
+    poles_z = roots([1, a1_z, a2_z]);
     z1 = poles_z(1);
     z2 = poles_z(2);
 
@@ -472,7 +532,7 @@ if OUTPUT_LATEX
             '}{' ...
             '1 + %.6f z^{-1} + %.6f z^{-2}' ...
             '} \\mathbf{B}'], ...
-            b0_mantissa, b0_exp, b1_over_b0, a1, a2);
+            b0_mantissa, b0_exp, b1_over_b0, a1_z, a2_z);
 
         % Also provide complex factorization (comment)
         latex_output{end+1} = sprintf([...
@@ -778,4 +838,61 @@ if PLOT_MULTI_CURVE
     fprintf('\n=== Plots Generated ===\n');
     fprintf('Generated %d figure(s) for channels: %s\n', ...
         length(MULTI_CURVE_EXCITED_CHANNELS), mat2str(MULTI_CURVE_EXCITED_CHANNELS));
+end
+
+%% HELPER FUNCTION: Single Transfer Function Fitting
+
+function [a1, a2, b] = fit_single_tf(h_k, phi_k, w_k, p, wc_rad)
+    % Fit single second-order transfer function using weighted least squares
+    %
+    % Transfer Function Model:
+    %   H(s) = b / (s² + a1·s + a2)
+    %
+    % Inputs:
+    %   h_k     - Magnitude response (N×1 vector)
+    %   phi_k   - Phase response in radians (N×1 vector)
+    %   w_k     - Frequency vector in rad/s (N×1 vector)
+    %   p       - Weighting exponent
+    %   wc_rad  - Cutoff frequency in rad/s
+    %
+    % Outputs:
+    %   a1, a2  - Denominator coefficients
+    %   b       - Numerator coefficient
+
+    % Compute weighting function: w(ω) = 1/(1+(ω²/ωc²))^p
+    weight_k = 1 ./ (1 + (w_k.^2 / wc_rad^2)).^p;
+
+    % Precompute trigonometric values
+    sin_phi_k = sin(phi_k);
+    cos_phi_k = cos(phi_k);
+
+    % Build weighted least squares matrices
+    sum_hk2_wk2 = sum(weight_k .* h_k.^2 .* w_k.^2);
+    sum_hk2 = sum(weight_k .* h_k.^2);
+    sum_hk_sin_wk = sum(weight_k .* h_k .* sin_phi_k .* w_k);
+    sum_hk_cos = sum(weight_k .* h_k .* cos_phi_k);
+    sum_hk_cos_wk2 = sum(weight_k .* h_k .* cos_phi_k .* w_k.^2);
+    sum_weight = sum(weight_k);
+
+    % System matrix (3×3)
+    A_mat = [
+        sum_hk2_wk2,        0,              sum_hk_sin_wk;
+        0,                  sum_hk2,       -sum_hk_cos;
+        sum_hk_sin_wk,     -sum_hk_cos,     sum_weight;
+    ];
+
+    % Right-hand side vector (3×1)
+    y_vec = [
+        0;
+        sum_hk2_wk2;
+       -sum_hk_cos_wk2;
+    ];
+
+    % Solve linear system: A_mat * x = y_vec
+    x = A_mat \ y_vec;
+
+    % Extract parameters
+    a1 = x(1);
+    a2 = x(2);
+    b  = x(3);
 end
