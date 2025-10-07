@@ -71,6 +71,10 @@ LATEX_FILENAME = 'transfer_function_latex.txt';
 SAVE_ONE_CURVE_RESULTS = true;      % Save individual transfer function parameters
 ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
+% --- SECTION 9: One-Curve vs Multi-Curve Comparison Control ---
+ENABLE_ONE_MULTI_COMPARISON = false;     % Enable comparison plots
+ONE_MULTI_COMPARISON_CHANNELS = [1];     % Excitation channels to compare (e.g., [1,3,5])
+
 %% SECTION 2: DATA LOADING
 
 % Initialize storage arrays
@@ -911,4 +915,277 @@ function [a1, a2, b] = fit_single_tf(h_k, phi_k, w_k, p, wc_rad)
     a1 = x(1);
     a2 = x(2);
     b  = x(3);
+end
+
+%% SECTION 9: ONE-CURVE VS MULTI-CURVE COMPARISON (Optional)
+
+if ENABLE_ONE_MULTI_COMPARISON
+    fprintf('\n=== SECTION 9: One-Curve vs Multi-Curve Comparison ===\n');
+
+    % Check if one_curve_36_results.mat exists
+    if ~exist(ONE_CURVE_OUTPUT_FILE, 'file')
+        warning('File ''%s'' not found. Skipping comparison.', ONE_CURVE_OUTPUT_FILE);
+        warning('Set SAVE_ONE_CURVE_RESULTS = true and re-run to generate this file.');
+    else
+        % Load one-curve results
+        loaded_data = load(ONE_CURVE_OUTPUT_FILE);
+        one_curve_results = loaded_data.one_curve_results;
+
+        fprintf('Loaded one-curve results from: %s\n', ONE_CURVE_OUTPUT_FILE);
+
+        % Extract DC gains from both methods
+        % One-Curve: DC gain = b(i,j) / a2(i,j)
+        DC_one = one_curve_results.b_matrix ./ one_curve_results.a2_matrix;
+
+        % Multi-Curve: DC gain = B(i,j) (already normalized by A2)
+        DC_multi = B_modified;  % Using B_modified which has correct signs
+
+        % Compute difference
+        DC_diff = DC_multi - DC_one;
+        DC_diff_percent = (DC_diff ./ DC_one) * 100;
+
+        % --- Task 9: Static Gain Heatmap Comparison ---
+        fprintf('\n--- Static Gain Heatmap Comparison ---\n');
+
+        figure('Name', 'DC Gain Comparison: One-Curve vs Multi-Curve', ...
+               'Position', [100, 100, 1800, 500]);
+
+        % Subplot 1: One-Curve DC Gains
+        subplot(1, 3, 1);
+        imagesc(DC_one);
+        colorbar;
+        colormap('jet');
+        title('One-Curve DC Gains', 'FontWeight', 'bold', 'FontSize', 16);
+        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
+        axis equal tight;
+
+        % Add text annotations
+        for i = 1:6
+            for j = 1:6
+                text(j, i, sprintf('%.3f', DC_one(i,j)), ...
+                    'HorizontalAlignment', 'center', 'FontSize', 10, ...
+                    'Color', 'w', 'FontWeight', 'bold');
+            end
+        end
+
+        % Subplot 2: Multi-Curve DC Gains
+        subplot(1, 3, 2);
+        imagesc(DC_multi);
+        colorbar;
+        colormap('jet');
+        title('Multi-Curve DC Gains (B Matrix)', 'FontWeight', 'bold', 'FontSize', 16);
+        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
+        axis equal tight;
+
+        for i = 1:6
+            for j = 1:6
+                text(j, i, sprintf('%.3f', DC_multi(i,j)), ...
+                    'HorizontalAlignment', 'center', 'FontSize', 10, ...
+                    'Color', 'w', 'FontWeight', 'bold');
+            end
+        end
+
+        % Subplot 3: Difference (Multi - One)
+        subplot(1, 3, 3);
+        imagesc(DC_diff);
+        colorbar;
+        colormap('jet');
+        title('Difference (Multi - One)', 'FontWeight', 'bold', 'FontSize', 16);
+        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
+        axis equal tight;
+
+        for i = 1:6
+            for j = 1:6
+                text(j, i, sprintf('%.3f\n(%.1f%%)', DC_diff(i,j), DC_diff_percent(i,j)), ...
+                    'HorizontalAlignment', 'center', 'FontSize', 9, ...
+                    'Color', 'w', 'FontWeight', 'bold');
+            end
+        end
+
+        sgtitle('DC Gain Comparison: One-Curve vs Multi-Curve', ...
+                'FontWeight', 'bold', 'FontSize', 18);
+
+        fprintf('✓ DC gain heatmap generated\n');
+
+        % --- Task 10: Grouped Bode Plot Comparison (by excitation channel) ---
+        fprintf('\n--- Grouped Bode Plot Comparison ---\n');
+
+        freq_smooth = logspace(log10(min(W)), log10(max(W)), 200);
+        s_smooth = 1j * 2 * pi * freq_smooth;
+
+        for excited_ch = ONE_MULTI_COMPARISON_CHANNELS
+            fprintf('Generating comparison for excitation channel P%d...\n', excited_ch);
+
+            figure('Name', sprintf('Bode Comparison: P%d Excitation', excited_ch), ...
+                   'Position', [100 + (excited_ch-1)*100, 100, 1000, 900]);
+
+            % === Magnitude Plot ===
+            subplot(2, 1, 1);
+            hold on;
+
+            % Plot 6 one-curve transfer functions (gray)
+            for out_ch = 1:6
+                a1_one = one_curve_results.a1_matrix(out_ch, excited_ch);
+                a2_one = one_curve_results.a2_matrix(out_ch, excited_ch);
+                b_one = one_curve_results.b_matrix(out_ch, excited_ch);
+
+                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
+                dc_gain_one = b_one / a2_one;
+                H_one_norm = H_one_smooth / dc_gain_one;
+
+                semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
+                    'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+            end
+
+            % Plot multi-curve transfer function (black, thick)
+            H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
+            H_multi_norm = H_multi_smooth / (A2/A2);
+            semilogx(freq_smooth, 20*log10(abs(H_multi_norm)), 'k-', 'LineWidth', 3);
+
+            xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
+            ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 24);
+            title(sprintf('P%d Excitation - Magnitude', excited_ch), ...
+                  'FontWeight', 'bold', 'FontSize', 20);
+
+            set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
+            xlim([min(W), max(W)]);
+            ylim([-30, 1]);
+            grid on;
+            box on;
+
+            % === Phase Plot ===
+            subplot(2, 1, 2);
+            hold on;
+
+            % Plot 6 one-curve phases (gray)
+            for out_ch = 1:6
+                a1_one = one_curve_results.a1_matrix(out_ch, excited_ch);
+                a2_one = one_curve_results.a2_matrix(out_ch, excited_ch);
+                b_one = one_curve_results.b_matrix(out_ch, excited_ch);
+
+                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
+                phase_one = angle(H_one_smooth) * 180/pi;
+
+                semilogx(freq_smooth, phase_one, '-', ...
+                    'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+            end
+
+            % Plot multi-curve phase (black, thick)
+            H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
+            phase_multi = angle(H_multi_smooth) * 180/pi;
+            semilogx(freq_smooth, phase_multi, 'k-', 'LineWidth', 3);
+
+            xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
+            ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 24);
+            title(sprintf('P%d Excitation - Phase', excited_ch), ...
+                  'FontWeight', 'bold', 'FontSize', 20);
+
+            set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
+            xlim([min(W), max(W)]);
+            ylim([-180, 5]);
+            grid on;
+            box on;
+
+            sgtitle(sprintf('Bode Comparison: P%d Excitation\n(Gray: One-Curve, Black: Multi-Curve)', ...
+                    excited_ch), 'FontWeight', 'bold', 'FontSize', 18);
+        end
+
+        fprintf('✓ Generated %d grouped Bode comparison plot(s)\n', ...
+                length(ONE_MULTI_COMPARISON_CHANNELS));
+
+        % --- Task 11: Full 36-Curve Bode Plot Comparison ---
+        fprintf('\n--- Full 36-Curve Bode Plot Comparison ---\n');
+
+        figure('Name', 'Full 36-Curve Bode Comparison', ...
+               'Position', [150, 50, 1000, 900]);
+
+        % === Magnitude Plot ===
+        subplot(2, 1, 1);
+        hold on;
+
+        % Plot all 36 one-curve transfer functions (gray)
+        for i = 1:6
+            for j = 1:6
+                a1_one = one_curve_results.a1_matrix(i, j);
+                a2_one = one_curve_results.a2_matrix(i, j);
+                b_one = one_curve_results.b_matrix(i, j);
+
+                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
+                dc_gain_one = b_one / a2_one;
+                H_one_norm = H_one_smooth / dc_gain_one;
+
+                semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
+                    'Color', [0.7 0.7 0.7], 'LineWidth', 1);
+            end
+        end
+
+        % Plot multi-curve transfer function (black, thick)
+        H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
+        H_multi_norm = H_multi_smooth / (A2/A2);
+        semilogx(freq_smooth, 20*log10(abs(H_multi_norm)), 'k-', 'LineWidth', 3);
+
+        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
+        ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 24);
+        title('All 36 Transfer Functions - Magnitude', 'FontWeight', 'bold', 'FontSize', 20);
+
+        set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
+        xlim([min(W), max(W)]);
+        ylim([-30, 1]);
+        grid on;
+        box on;
+
+        % === Phase Plot ===
+        subplot(2, 1, 2);
+        hold on;
+
+        % Plot all 36 one-curve phases (gray)
+        for i = 1:6
+            for j = 1:6
+                a1_one = one_curve_results.a1_matrix(i, j);
+                a2_one = one_curve_results.a2_matrix(i, j);
+                b_one = one_curve_results.b_matrix(i, j);
+
+                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
+                phase_one = angle(H_one_smooth) * 180/pi;
+
+                semilogx(freq_smooth, phase_one, '-', ...
+                    'Color', [0.7 0.7 0.7], 'LineWidth', 1);
+            end
+        end
+
+        % Plot multi-curve phase (black, thick)
+        H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
+        phase_multi = angle(H_multi_smooth) * 180/pi;
+        semilogx(freq_smooth, phase_multi, 'k-', 'LineWidth', 3);
+
+        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
+        ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 24);
+        title('All 36 Transfer Functions - Phase', 'FontWeight', 'bold', 'FontSize', 20);
+
+        set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
+        xlim([min(W), max(W)]);
+        ylim([-180, 5]);
+        grid on;
+        box on;
+
+        sgtitle('Full 36-Curve Bode Comparison\n(Gray: Individual One-Curve, Black: Unified Multi-Curve)', ...
+                'FontWeight', 'bold', 'FontSize', 18);
+
+        fprintf('✓ Full 36-curve Bode comparison generated\n');
+
+        fprintf('\n=== SECTION 9 COMPLETE ===\n');
+        fprintf('Generated comparison plots:\n');
+        fprintf('  - DC gain heatmap (3 panels)\n');
+        fprintf('  - Grouped Bode plots: %d channel(s)\n', length(ONE_MULTI_COMPARISON_CHANNELS));
+        fprintf('  - Full 36-curve Bode plot\n');
+    end
+else
+    fprintf('\n=== SECTION 9: SKIPPED ===\n');
+    fprintf('  (ENABLE_ONE_MULTI_COMPARISON = false)\n');
 end
