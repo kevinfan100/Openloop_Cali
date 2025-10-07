@@ -1,0 +1,389 @@
+================================================================================
+  SIMULINK 使用說明 - 36-Channel MIMO Transfer Function Model
+================================================================================
+
+目錄
+----
+1. 快速開始
+2. 模型結構說明
+3. 詳細使用步驟
+4. 進階設定
+5. 常見問題
+6. 範例應用
+
+
+================================================================================
+1. 快速開始
+================================================================================
+
+三步驟建立並使用 Simulink 模型：
+
+步驟 1: 生成轉移函數參數
+--------------------------
+在 MATLAB 中執行：
+    >> Model_6_6_Continuous_Weighted
+
+這會產生：one_curve_36_results.mat
+
+
+步驟 2: 建立 Simulink 模型
+--------------------------
+執行自動化腳本：
+    >> generate_simulink_model
+
+這會產生：MIMO_36Channel_Model.slx
+
+
+步驟 3: 打開並使用模型
+--------------------------
+    >> open_system('MIMO_36Channel_Model')
+
+
+================================================================================
+2. 模型結構說明
+================================================================================
+
+2.1 整體架構
+-------------
+輸入 → 轉移函數 → 加總 → 輸出
+
+        ┌─── TF_H11 ───┐
+        ├─── TF_H12 ───┤
+P1 ─┬─→ ├─── TF_H13 ───┼─→ Sum → Ch1
+    │   ├─── TF_H14 ───┤
+    │   ├─── TF_H15 ───┤
+    │   └─── TF_H16 ───┘
+    │
+P2 ─┼─→ (同樣邏輯，每個輸入連接 6 個 TF)
+    │
+... │
+    │
+P6 ─┘
+
+每個輸出通道（Ch1~Ch6）= 所有 6 個輸入經過對應轉移函數後的加總
+
+
+2.2 轉移函數格式
+-----------------
+每個 TF_Hij 方塊代表：
+
+    H_ij(s) = b(i,j) / (s² + a1(i,j)·s + a2(i,j))
+
+- i: 輸出通道編號 (1~6)
+- j: 輸入通道編號 (1~6)
+- 總共 36 個獨立的二階轉移函數
+
+
+2.3 模型元件
+-------------
+- 輸入端口: Input_P1 ~ Input_P6 (6 個)
+- 輸出端口: Output_Ch1 ~ Output_Ch6 (6 個)
+- 轉移函數: TF_H11 ~ TF_H66 (36 個)
+- 加法器: Sum_Ch1 ~ Sum_Ch6 (6 個)
+
+
+================================================================================
+3. 詳細使用步驟
+================================================================================
+
+3.1 準備工作
+-------------
+確保已安裝：
+  ✓ MATLAB (R2018b 或更新版本)
+  ✓ Simulink
+  ✓ Control System Toolbox
+
+
+3.2 生成模型
+-------------
+1. 確認工作目錄包含以下檔案：
+   - Model_6_6_Continuous_Weighted.m
+   - generate_simulink_model.m
+   - P1.m ~ P6.m
+
+2. 執行主程式：
+   >> Model_6_6_Continuous_Weighted
+
+   確認產生：one_curve_36_results.mat
+
+3. 執行建模腳本：
+   >> generate_simulink_model
+
+   確認產生：MIMO_36Channel_Model.slx
+
+
+3.3 配置模型
+-------------
+1. 打開模型：
+   >> open_system('MIMO_36Channel_Model')
+
+2. 設定 Solver（求解器）：
+   - 點擊「Modeling」→「Model Settings」
+   - Solver 頁籤：
+     * Type: Fixed-step（固定步長）
+     * Solver: ode4 (Runge-Kutta)
+     * Fixed-step size: 1e-5  (10 μs，與你的系統採樣週期一致)
+
+3. 設定 Simulation Time（模擬時間）：
+   - Start time: 0
+   - Stop time: 1  (或根據需要調整)
+
+
+3.4 添加輸入信號
+-----------------
+方法 1: 使用 Step 輸入（階躍響應）
+   1. 從 Library Browser 拖曳「Step」方塊
+   2. 連接到 Input_P1（或任意輸入）
+   3. 設定 Step block 參數：
+      - Step time: 0.1
+      - Initial value: 0
+      - Final value: 1
+
+方法 2: 使用 Sine Wave 輸入（頻率響應）
+   1. 拖曳「Sine Wave」方塊
+   2. 設定參數：
+      - Amplitude: 1
+      - Frequency: 2*pi*f  (例如 f=10 Hz → 62.83 rad/s)
+      - Phase: 0
+
+方法 3: 使用 From Workspace（自定義數據）
+   1. 拖曳「From Workspace」方塊
+   2. 在 MATLAB workspace 準備數據：
+      >> t = 0:1e-5:1;
+      >> u = sin(2*pi*10*t);
+      >> input_data = [t', u'];
+   3. 設定 Data: input_data
+
+
+3.5 添加輸出觀測
+-----------------
+方法 1: Scope（示波器）
+   1. 拖曳「Scope」方塊
+   2. 連接到 Output_Ch1（或任意輸出）
+   3. 執行模擬後，雙擊 Scope 查看波形
+
+方法 2: To Workspace（保存數據）
+   1. 拖曳「To Workspace」方塊
+   2. 設定變數名稱，例如：output_ch1
+   3. Save format: Array
+   4. 執行後在 MATLAB workspace 查看：
+      >> plot(output_ch1)
+
+
+3.6 執行模擬
+-------------
+1. 點擊「Run」按鈕（綠色三角形）
+2. 或執行：
+   >> sim('MIMO_36Channel_Model')
+
+3. 查看結果：
+   - 雙擊 Scope 方塊查看波形
+   - 或在 workspace 中分析保存的數據
+
+
+================================================================================
+4. 進階設定
+================================================================================
+
+4.1 批量修改轉移函數
+---------------------
+如果需要調整所有轉移函數的參數：
+
+1. 直接修改 one_curve_36_results.mat：
+   >> load('one_curve_36_results.mat')
+   >> one_curve_results.b_matrix = one_curve_results.b_matrix * 1.1;  % 增益放大 10%
+   >> save('one_curve_36_results.mat', 'one_curve_results')
+
+2. 重新生成模型：
+   >> generate_simulink_model
+
+
+4.2 添加噪聲
+-------------
+1. 拖曳「Band-Limited White Noise」方塊
+2. 使用「Sum」方塊將噪聲加到輸入或輸出
+3. 設定噪聲參數：
+   - Noise power: 0.001
+   - Sample time: 1e-5
+
+
+4.3 多輸入多輸出測試
+---------------------
+同時激發多個輸入：
+
+1. 為每個輸入端口添加不同的信號源：
+   - P1: Step (階躍)
+   - P2: Sine Wave (正弦波)
+   - P3: Chirp Signal (掃頻)
+   - P4~P6: Constant (常數 0)
+
+2. 使用「Mux」方塊整合多個輸出到一個 Scope
+
+
+4.4 線性化分析
+---------------
+提取模型的線性化狀態空間表示：
+
+1. 標記操作點：
+   - 右鍵點擊輸入端口 → Linear Analysis Points → Input Point
+   - 右鍵點擊輸出端口 → Linear Analysis Points → Output Point
+
+2. 執行線性化：
+   >> io = getlinio('MIMO_36Channel_Model');
+   >> sys = linearize('MIMO_36Channel_Model', io);
+
+3. 分析轉移函數：
+   >> bode(sys)
+   >> step(sys)
+
+
+4.5 頻率響應驗證
+-----------------
+驗證 Simulink 模型與原始 Bode 數據的一致性：
+
+1. 在 MATLAB 中：
+   >> load('one_curve_36_results.mat')
+   >> H11_sim = tf(one_curve_results.b_matrix(1,1), ...
+                    [1, one_curve_results.a1_matrix(1,1), one_curve_results.a2_matrix(1,1)]);
+   >> figure; bode(H11_sim)
+
+2. 在 Simulink 中輸入正弦波，比對輸出振幅和相位
+
+
+================================================================================
+5. 常見問題
+================================================================================
+
+Q1: 模型執行速度很慢
+A1:
+  - 減小固定步長（但不建議小於 1e-5）
+  - 減少模擬時間
+  - 使用 Accelerator 模式（Simulation → Mode → Accelerator）
+
+Q2: 出現代數環（Algebraic loop）警告
+A2:
+  - 確認沒有直接回授路徑（輸出直接連回輸入）
+  - 在回授路徑中加入「Memory」或「Unit Delay」方塊
+
+Q3: 轉移函數係數顯示為科學記號，不易閱讀
+A3:
+  - 雙擊 TF 方塊
+  - 在參數對話框中查看完整數值
+  - 或執行：
+    >> get_param('MIMO_36Channel_Model/TF_H11', 'Numerator')
+
+Q4: 想要查看特定通道的轉移函數
+A4:
+  >> load('one_curve_36_results.mat')
+  >> i = 1; j = 1;  % 查看 H_11
+  >> fprintf('H_%d%d(s) = %.4e / (s^2 + %.4e*s + %.4e)\n', ...
+             i, j, one_curve_results.b_matrix(i,j), ...
+             one_curve_results.a1_matrix(i,j), ...
+             one_curve_results.a2_matrix(i,j))
+
+Q5: 如何導出為 C 代碼或其他格式
+A5:
+  - 使用 Simulink Coder（需額外授權）
+  - 或手動從 .mat 檔案讀取係數，在嵌入式系統中實現
+
+
+================================================================================
+6. 範例應用
+================================================================================
+
+6.1 範例 1: 單一通道階躍響應
+-----------------------------
+目的：測試 P1 → Ch1 的階躍響應
+
+步驟：
+1. 打開模型
+2. 添加 Step 方塊連接到 Input_P1
+   - Step time: 0.1
+   - Final value: 1
+3. 其他輸入（P2~P6）連接 Constant 方塊，值為 0
+4. 添加 Scope 連接到 Output_Ch1
+5. 設定模擬時間: 0~1 秒
+6. 執行並觀察
+
+
+6.2 範例 2: 頻率掃描
+--------------------
+目的：驗證頻率響應與 Bode 圖一致
+
+步驟：
+1. 添加 Chirp Signal 連接到 Input_P1
+   - Initial frequency: 0.1 Hz
+   - Target frequency: 2000 Hz
+   - Target time: 10 s
+2. 添加「To Workspace」到 Input_P1 和 Output_Ch1
+   - 變數名: input_data, output_data
+3. 模擬 10 秒
+4. 在 MATLAB 中分析：
+   >> [Txy, F] = tfestimate(input_data, output_data, [], [], [], 1e5);
+   >> figure; bode(Txy, 2*pi*F)
+
+
+6.3 範例 3: MIMO 耦合測試
+--------------------------
+目的：觀察多輸入對單一輸出的影響
+
+步驟：
+1. P1 連接 Step (t=0.1, value=1)
+2. P3 連接 Step (t=0.5, value=1)
+3. 其他輸入接 Constant = 0
+4. Output_Ch1 連接 Scope
+5. 執行並觀察 Ch1 如何響應來自 P1 和 P3 的輸入
+
+
+6.4 範例 4: 與統一 MIMO 模型比較
+---------------------------------
+目的：比較 36 獨立 TF 與統一 MIMO 模型的差異
+
+步驟：
+1. 使用本模型（36 獨立 TF）執行測試
+2. 使用 Model_6_6_Continuous_Weighted.m 的統一模型：
+   >> H_unified = tf(A2, [1, A1, A2]) * B;
+   >> step(H_unified)
+3. 比較兩者的階躍響應或頻率響應
+
+
+================================================================================
+附錄：快速指令參考
+================================================================================
+
+# 建立模型
+generate_simulink_model
+
+# 打開模型
+open_system('MIMO_36Channel_Model')
+
+# 執行模擬
+sim('MIMO_36Channel_Model')
+
+# 查看參數
+load('one_curve_36_results.mat')
+one_curve_results.b_matrix       % 查看增益矩陣
+one_curve_results.a1_matrix      % 查看一階係數
+one_curve_results.a2_matrix      % 查看二階係數
+
+# 線性化
+io = getlinio('MIMO_36Channel_Model');
+sys = linearize('MIMO_36Channel_Model', io);
+bode(sys)
+
+# 關閉模型
+close_system('MIMO_36Channel_Model', 0)
+
+
+================================================================================
+聯絡資訊
+================================================================================
+
+如有問題，請參考：
+- Simulink 官方文檔: https://www.mathworks.com/help/simulink/
+- Transfer Fcn 方塊說明: https://www.mathworks.com/help/simulink/slref/transferfcn.html
+
+生成日期: 2025-10-06
+版本: 1.0
+
+================================================================================
