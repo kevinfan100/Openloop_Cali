@@ -1,8 +1,8 @@
-% MIMO TRANSFER FUNCTION FITTING AND DISCRETIZATION
+% MIMO TRANSFER FUNCTION FITTING AND CONTINUOUS-TO-DISCRETE CONVERSION
 %
 % Purpose:
 %   Fit 6×6 MIMO transfer function from frequency response data (P1~P6)
-%   and perform Zero-Order Hold (ZOH) discretization
+%   and perform Zero-Order Hold (ZOH) continuous-to-discrete conversion
 %
 % Mathematical Model:
 %   H(s) = [A2 / (s² + A1·s + A2)] · B
@@ -53,7 +53,7 @@ param_sets_single = [
 p_multi = 0.5;                      % Weighting exponent: w(ω) = 1/(1+(ω²/ωc²))^p
 wc_multi_Hz = 0.1;                  % Cutoff frequency [Hz]
 
-% --- Discretization Parameters ---
+% --- Continuous-to-Discrete Conversion Parameters ---
 T_sample = 1e-5;                    % Sampling time [s] (10 μs, Fs = 100 kHz)
 
 % Fixed Amplifier Gain Matrix (diagonal values)
@@ -418,7 +418,7 @@ end
 fprintf('H(s) = [%.4e/(s² + %.4e·s + %.4e)] · B\n', A2, A1, A2);
 fprintf('A1=%.10f, A2=%.10f\n', A1, A2);
 
-%% SECTION 6: DISCRETIZATION (Zero-Order Hold)
+%% SECTION 6: CONTINUOUS-TO-DISCRETE CONVERSION (Zero-Order Hold)
 
 % --- Modify B matrix sign (negate off-diagonal elements) ---
 B_modified = B;
@@ -430,7 +430,7 @@ for i = 1:num_channels
     end
 end
 
-fprintf('\n=== Discretization (ZOH, T=%.0e s) ===\n', T_sample);
+fprintf('\n=== Continuous-to-Discrete Conversion (ZOH, T=%.0e s) ===\n', T_sample);
 
 % --- Build continuous-time transfer function ---
 num_s = A2;

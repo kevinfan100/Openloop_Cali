@@ -138,7 +138,7 @@ Openloop_cali/
 │         │                                                       │
 │         ├─ Load 6×6 frequency response matrix                  │
 │         ├─ Weighted curve fitting (H(s) = ωn²/(s²+2ζωn·s+ωn²))│
-│         ├─ ZOH discretization                                  │
+│         ├─ ZOH continuous-to-discrete conversion              │
 │         └─ LaTeX output generation                             │
 │         ↓                                                       │
 │  MIMO Transfer Function Model                                  │
@@ -387,7 +387,7 @@ run('Model_6_6_Continuous_Weighted.m')
 1. Load 6×6 frequency response matrix from P1~P6.m
 2. Fit second-order transfer function for each element
 3. Apply weighted least-squares optimization
-4. Perform ZOH discretization (T = 10 μs)
+4. Perform ZOH continuous-to-discrete conversion (T = 10 μs)
 5. Generate LaTeX output
 
 **Output Files:**
