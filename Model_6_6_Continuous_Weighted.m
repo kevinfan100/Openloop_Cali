@@ -60,8 +60,8 @@ T_sample = 1e-5;                    % Sampling time [s] (10 μs, Fs = 100 kHz)
 k_A_diag = [0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610];
 
 % --- Output and Visualization Control ---
-PLOT_ONE_CURVE = true;             % Plot single curve Bode diagram
-PLOT_MULTI_CURVE = true;           % Plot multiple curves Bode diagram
+PLOT_ONE_CURVE = false;             % Plot single curve Bode diagram
+PLOT_MULTI_CURVE = false;           % Plot multiple curves Bode diagram
 MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,P5)
 
 OUTPUT_LATEX = false;                % Generate LaTeX output file
@@ -948,13 +948,12 @@ if ENABLE_ONE_MULTI_COMPARISON
         fprintf('\n--- Static Gain Heatmap Comparison ---\n');
 
         figure('Name', 'DC Gain Comparison: One-Curve vs Multi-Curve', ...
-               'Position', [100, 100, 1800, 500]);
+               'Position', [100, 100, 1200, 500]);
 
         % Subplot 1: One-Curve DC Gains
-        subplot(1, 3, 1);
-        imagesc(DC_one);
-        colorbar;
-        colormap('jet');
+        subplot(1, 2, 1);
+        imagesc(ones(6, 6) * 0.9);
+        colormap('gray');
         title('One-Curve DC Gains', 'FontWeight', 'bold', 'FontSize', 16);
         xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
         ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
@@ -965,16 +964,15 @@ if ENABLE_ONE_MULTI_COMPARISON
         for i = 1:6
             for j = 1:6
                 text(j, i, sprintf('%.3f', DC_one(i,j)), ...
-                    'HorizontalAlignment', 'center', 'FontSize', 10, ...
-                    'Color', 'w', 'FontWeight', 'bold');
+                    'HorizontalAlignment', 'center', 'FontSize', 12, ...
+                    'Color', 'k', 'FontWeight', 'bold');
             end
         end
 
         % Subplot 2: Multi-Curve DC Gains
-        subplot(1, 3, 2);
-        imagesc(DC_multi);
-        colorbar;
-        colormap('jet');
+        subplot(1, 2, 2);
+        imagesc(ones(6, 6) * 0.9);
+        colormap('gray');
         title('Multi-Curve DC Gains (B Matrix)', 'FontWeight', 'bold', 'FontSize', 16);
         xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
         ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
@@ -984,27 +982,8 @@ if ENABLE_ONE_MULTI_COMPARISON
         for i = 1:6
             for j = 1:6
                 text(j, i, sprintf('%.3f', DC_multi(i,j)), ...
-                    'HorizontalAlignment', 'center', 'FontSize', 10, ...
-                    'Color', 'w', 'FontWeight', 'bold');
-            end
-        end
-
-        % Subplot 3: Difference (Multi - One)
-        subplot(1, 3, 3);
-        imagesc(DC_diff);
-        colorbar;
-        colormap('jet');
-        title('Difference (Multi - One)', 'FontWeight', 'bold', 'FontSize', 16);
-        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
-        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
-        set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
-        axis equal tight;
-
-        for i = 1:6
-            for j = 1:6
-                text(j, i, sprintf('%.3f\n(%.1f%%)', DC_diff(i,j), DC_diff_percent(i,j)), ...
-                    'HorizontalAlignment', 'center', 'FontSize', 9, ...
-                    'Color', 'w', 'FontWeight', 'bold');
+                    'HorizontalAlignment', 'center', 'FontSize', 12, ...
+                    'Color', 'k', 'FontWeight', 'bold');
             end
         end
 
