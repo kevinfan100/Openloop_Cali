@@ -945,16 +945,16 @@ if ENABLE_ONE_MULTI_COMPARISON
         DC_diff_percent = (DC_diff ./ DC_one) * 100;
 
         % --- Task 9: Static Gain Heatmap Comparison ---
-        fprintf('\n--- Static Gain Heatmap Comparison ---\n');
+        fprintf('\n--- Steady-State Gain Heatmap Comparison ---\n');
 
-        figure('Name', 'DC Gain Comparison: One-Curve vs Multi-Curve', ...
+        figure('Name', 'Steady-State Gain Comparison: One-Curve vs Multi-Curve', ...
                'Position', [100, 100, 1200, 500]);
 
-        % Subplot 1: One-Curve DC Gains
+        % Subplot 1: One-Curve Steady-State Gains
         subplot(1, 2, 1);
         imagesc(ones(6, 6) * 0.9);
         colormap('gray');
-        title('One-Curve DC Gains', 'FontWeight', 'bold', 'FontSize', 16);
+        title('One-Curve Steady-State Gains', 'FontWeight', 'bold', 'FontSize', 16);
         xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
         ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
         set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
@@ -969,11 +969,11 @@ if ENABLE_ONE_MULTI_COMPARISON
             end
         end
 
-        % Subplot 2: Multi-Curve DC Gains
+        % Subplot 2: Multi-Curve Steady-State Gains
         subplot(1, 2, 2);
         imagesc(ones(6, 6) * 0.9);
         colormap('gray');
-        title('Multi-Curve DC Gains (B Matrix)', 'FontWeight', 'bold', 'FontSize', 16);
+        title('Multi-Curve Steady-State Gains (B Matrix)', 'FontWeight', 'bold', 'FontSize', 16);
         xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
         ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
         set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
@@ -987,10 +987,10 @@ if ENABLE_ONE_MULTI_COMPARISON
             end
         end
 
-        sgtitle('DC Gain Comparison: One-Curve vs Multi-Curve', ...
+        sgtitle('Steady-State Gain Comparison: One-Curve vs Multi-Curve', ...
                 'FontWeight', 'bold', 'FontSize', 18);
 
-        fprintf('✓ DC gain heatmap generated\n');
+        fprintf('✓ Steady-state gain heatmap generated\n');
 
         % --- Task 10: Grouped Bode Plot Comparison (by excitation channel) ---
         fprintf('\n--- Grouped Bode Plot Comparison ---\n');
@@ -1080,7 +1080,7 @@ if ENABLE_ONE_MULTI_COMPARISON
 
         fprintf('\n=== SECTION 9 COMPLETE ===\n');
         fprintf('Generated comparison plots:\n');
-        fprintf('  - DC gain heatmap (3 panels)\n');
+        fprintf('  - Steady-state gain heatmap (2 panels)\n');
         fprintf('  - Grouped Bode plots: %d channel(s)\n', length(ONE_MULTI_COMPARISON_CHANNELS));
     end
 else
