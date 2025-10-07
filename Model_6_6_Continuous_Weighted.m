@@ -231,6 +231,19 @@ else
     fprintf('w(ω)=1/(1+(ω²/ωc²))^p, ωc=%.2f rad/s (%.2f Hz), p=%.1f\n', ...
             wc_single_rad, wc_single_Hz, p_single);
     fprintf('a1=%.6f, a2=%.6f, b=%.6f\n', a1, a2, b);
+
+    % Compute DC gain
+    dc_gain_single = b / a2;
+
+    % Display normalized transfer function
+    a1_exp = floor(log10(abs(a1)));
+    a2_exp = floor(log10(abs(a2)));
+    a1_mantissa = a1 / 10^a1_exp;
+    a2_mantissa = a2 / 10^a2_exp;
+
+    fprintf('H(s) = %.4e / (s² + %.4f×10^%d·s + %.4f×10^%d)\n', ...
+            b, a1_mantissa, a1_exp, a2_mantissa, a2_exp);
+    fprintf('DC gain: b/a2 = %.6f\n', dc_gain_single);
 end
 
 %% SECTION 4.5: BATCH SINGLE CURVE FITTING (36 Channels) [OPTIONAL]
@@ -403,6 +416,7 @@ for i = 1:6
 end
 
 fprintf('H(s) = [%.4e/(s² + %.4e·s + %.4e)] · B\n', A2, A1, A2);
+fprintf('A1=%.10f, A2=%.10f\n', A1, A2);
 
 %% SECTION 6: DISCRETIZATION (Zero-Order Hold)
 
