@@ -35,7 +35,7 @@ excited_channel = 1;                % Input channel index (excitation source)
 
 ENABLE_PARAM_COMPARISON = false;    % Enable parameter comparison mode
 p_single = 0.5;                     % Weighting exponent (0.5 or 1)
-wc_single_Hz = 1;                  % Cutoff frequency [Hz] for low-pass weighting
+wc_single_Hz = 0.1;                  % Cutoff frequency [Hz] for low-pass weighting
 
 % Parameter sets for comparison (when ENABLE_PARAM_COMPARISON = true)
 % Each row: [p, wc_Hz]
@@ -64,11 +64,11 @@ PLOT_ONE_CURVE = false;             % Plot single curve Bode diagram
 PLOT_MULTI_CURVE = false;           % Plot multiple curves Bode diagram
 MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,P5)
 
-OUTPUT_LATEX = false;                % Generate LaTeX output file
+OUTPUT_LATEX = true;                % Generate LaTeX output file
 LATEX_FILENAME = 'transfer_function_latex.txt';
 
 % --- 36-Channel Single Curve Fitting Control ---
-SAVE_ONE_CURVE_RESULTS = false;      % Save individual transfer function parameters
+SAVE_ONE_CURVE_RESULTS = true;      % Save individual transfer function parameters
 ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
 % --- SECTION 9: One-Curve vs Multi-Curve Comparison Control ---
@@ -953,7 +953,7 @@ if ENABLE_ONE_MULTI_COMPARISON
         DC_diff = DC_multi - DC_one;
         DC_diff_percent = (DC_diff ./ DC_one) * 100;
 
-        % --- Task 9: Static Gain Heatmap Comparison ---
+        % --- Steady-State Gain Heatmap Comparison ---
         fprintf('\n--- Steady-State Gain Heatmap Comparison ---\n');
 
         figure('Name', 'Steady-State Gain Comparison: One-Curve vs Multi-Curve', ...
@@ -964,8 +964,8 @@ if ENABLE_ONE_MULTI_COMPARISON
         imagesc(ones(6, 6) * 0.9);
         colormap('gray');
         title('One-Curve Steady-State Gains', 'FontWeight', 'bold', 'FontSize', 16);
-        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
-        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        xlabel('Input Pole', 'FontWeight', 'bold', 'FontSize', 14);
+        ylabel('Output Pole', 'FontWeight', 'bold', 'FontSize', 14);
         set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
         axis equal tight;
 
@@ -983,8 +983,8 @@ if ENABLE_ONE_MULTI_COMPARISON
         imagesc(ones(6, 6) * 0.9);
         colormap('gray');
         title('Multi-Curve Steady-State Gains (B Matrix)', 'FontWeight', 'bold', 'FontSize', 16);
-        xlabel('Input Channel', 'FontWeight', 'bold', 'FontSize', 14);
-        ylabel('Output Channel', 'FontWeight', 'bold', 'FontSize', 14);
+        xlabel('Input Pole', 'FontWeight', 'bold', 'FontSize', 14);
+        ylabel('Output pole', 'FontWeight', 'bold', 'FontSize', 14);
         set(gca, 'XTick', 1:6, 'YTick', 1:6, 'FontSize', 12);
         axis equal tight;
 
@@ -1001,7 +1001,7 @@ if ENABLE_ONE_MULTI_COMPARISON
 
         fprintf('✓ Steady-state gain heatmap generated\n');
 
-        % --- Task 10: Grouped Bode Plot Comparison (by excitation channel) ---
+        % --- Grouped Bode Plot Comparison (by excitation channel) ---
         fprintf('\n--- Grouped Bode Plot Comparison ---\n');
 
         freq_smooth = logspace(log10(min(W)), log10(max(W)), 200);
@@ -1036,11 +1036,11 @@ if ENABLE_ONE_MULTI_COMPARISON
                 % Use dark gray for paired channel, light gray for others
                 if out_ch == paired_ch
                     semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                        'Color', [0.4 0.4 0.4], 'LineWidth', 2.0, ...
+                        'Color', [0.3 0.3 0.3], 'LineWidth', 2.0, ...
                         'DisplayName', sprintf('P%d', paired_ch));
                 else
                     semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                        'Color', [0.8 0.8 0.8], 'LineWidth', 1.5, ...
+                        'Color', [0.5 0.5 0.5], 'LineWidth', 1.5, ...
                         'HandleVisibility', 'off');
                 end
             end
@@ -1079,11 +1079,11 @@ if ENABLE_ONE_MULTI_COMPARISON
                 % Use dark gray for paired channel, light gray for others
                 if out_ch == paired_ch
                     semilogx(freq_smooth, phase_one, '-', ...
-                        'Color', [0.4 0.4 0.4], 'LineWidth', 2.0, ...
+                        'Color', [0.3 0.3 0.3], 'LineWidth', 2.0, ...
                         'DisplayName', sprintf('P%d', paired_ch));
                 else
                     semilogx(freq_smooth, phase_one, '-', ...
-                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5, ...
+                        'Color', [0.5 0.5 0.5], 'LineWidth', 1.5, ...
                         'HandleVisibility', 'off');
                 end
             end
