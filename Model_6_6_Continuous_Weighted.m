@@ -1007,17 +1007,23 @@ if ENABLE_ONE_MULTI_COMPARISON
         freq_smooth = logspace(log10(min(W)), log10(max(W)), 200);
         s_smooth = 1j * 2 * pi * freq_smooth;
 
+        % Define channel pairing map: P1↔P2, P3↔P4, P5↔P6
+        pair_map = [2, 1, 4, 3, 6, 5];
+
         for excited_ch = ONE_MULTI_COMPARISON_CHANNELS
             fprintf('Generating comparison for excitation channel P%d...\n', excited_ch);
 
             figure('Name', sprintf('Bode Comparison: P%d Excitation', excited_ch), ...
                    'Position', [100 + (excited_ch-1)*100, 100, 1000, 900]);
 
+            % Get paired channel for current excitation
+            paired_ch = pair_map(excited_ch);
+
             % === Magnitude Plot ===
             subplot(2, 1, 1);
             hold on;
 
-            % Plot 6 one-curve transfer functions (gray)
+            % Plot 6 one-curve transfer functions (light gray or dark gray)
             for out_ch = 1:6
                 a1_one = one_curve_results.a1_matrix(out_ch, excited_ch);
                 a2_one = one_curve_results.a2_matrix(out_ch, excited_ch);
@@ -1027,8 +1033,15 @@ if ENABLE_ONE_MULTI_COMPARISON
                 dc_gain_one = b_one / a2_one;
                 H_one_norm = H_one_smooth / dc_gain_one;
 
-                semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                    'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                % Use dark gray for paired channel, light gray for others
+                if out_ch == paired_ch
+                    semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
+                        'Color', [0.4 0.4 0.4], 'LineWidth', 2.0, ...
+                        'DisplayName', sprintf('P%d', paired_ch));
+                else
+                    semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
+                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                end
             end
 
             % Plot multi-curve transfer function (black, thick)
@@ -1040,6 +1053,7 @@ if ENABLE_ONE_MULTI_COMPARISON
             ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 24);
             title(sprintf('P%d Excitation - Magnitude', excited_ch), ...
                   'FontWeight', 'bold', 'FontSize', 20);
+            legend('Location', 'northeast', 'FontWeight', 'bold', 'FontSize', 16);
 
             set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
             xlim([min(W), max(W)]);
@@ -1051,7 +1065,7 @@ if ENABLE_ONE_MULTI_COMPARISON
             subplot(2, 1, 2);
             hold on;
 
-            % Plot 6 one-curve phases (gray)
+            % Plot 6 one-curve phases (light gray or dark gray)
             for out_ch = 1:6
                 a1_one = one_curve_results.a1_matrix(out_ch, excited_ch);
                 a2_one = one_curve_results.a2_matrix(out_ch, excited_ch);
@@ -1060,8 +1074,15 @@ if ENABLE_ONE_MULTI_COMPARISON
                 H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
                 phase_one = angle(H_one_smooth) * 180/pi;
 
-                semilogx(freq_smooth, phase_one, '-', ...
-                    'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                % Use dark gray for paired channel, light gray for others
+                if out_ch == paired_ch
+                    semilogx(freq_smooth, phase_one, '-', ...
+                        'Color', [0.4 0.4 0.4], 'LineWidth', 2.0, ...
+                        'DisplayName', sprintf('P%d', paired_ch));
+                else
+                    semilogx(freq_smooth, phase_one, '-', ...
+                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                end
             end
 
             % Plot multi-curve phase (black, thick)
@@ -1073,6 +1094,7 @@ if ENABLE_ONE_MULTI_COMPARISON
             ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 24);
             title(sprintf('P%d Excitation - Phase', excited_ch), ...
                   'FontWeight', 'bold', 'FontSize', 20);
+            legend('Location', 'northeast', 'FontWeight', 'bold', 'FontSize', 16);
 
             set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
             xlim([min(W), max(W)]);
