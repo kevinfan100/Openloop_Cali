@@ -720,16 +720,17 @@ if PLOT_ONE_CURVE
         % === Magnitude plot ===
         subplot(2, 1, 1);
         hold on;
-        semilogx(W, h_db_norm, 'o-b', 'LineWidth', 3.5, 'MarkerSize', 12, ...
-            'MarkerFaceColor', 'none', 'DisplayName', sprintf('Ch%d', channel));
 
         H_model_smooth = b ./ (s_smooth.^2 + a1*s_smooth + a2);
         H_model_norm = H_model_smooth / dc_gain;
         semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, 'DisplayName', 'Model');
 
+        semilogx(W, h_db_norm, 'o-b', 'LineWidth', 3.5, 'MarkerSize', 12, ...
+            'MarkerFaceColor', 'none', 'DisplayName', sprintf('P%d (H(0)=%.4f)', excited_channel, dc_gain));
+
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 24);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 20);
 
         set(gca, axis_props{:}, font_props{:});
         y_min = min(h_db_norm) - 5;
@@ -783,6 +784,12 @@ if PLOT_MULTI_CURVE
         subplot(2, 1, 1);
         hold on;
 
+        % Plot single model curve first (for legend order)
+        H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
+        H_model_norm = H_model / (A2/A2);
+        semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
+            'DisplayName', 'Model');
+
         % Plot measured data (normalized by B matrix)
         for ch = 1:6
             h_meas = squeeze(H_mag(ch, excited_ch, :));
@@ -794,14 +801,8 @@ if PLOT_MULTI_CURVE
 
             semilogx(W, h_db_norm, 'o-', 'Color', channel_colors(ch), ...
                 'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
-                'DisplayName', sprintf('Channel %d', ch));
+                'DisplayName', sprintf('P%d (B%d%d=%.4f)', excited_ch, ch, excited_ch, dc_gain_theoretical));
         end
-
-        % Plot single model curve (normalized)
-        H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
-        H_model_norm = H_model / (A2/A2);
-        semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
-            'DisplayName', 'Model');
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
@@ -818,23 +819,24 @@ if PLOT_MULTI_CURVE
         subplot(2, 1, 2);
         hold on;
 
-        % Plot measured phase
-        for ch = 1:6
-            phi = squeeze(H_phase_offset_removed(ch, excited_ch, :));
-            semilogx(W, phi, 'o-', 'Color', channel_colors(ch), ...
-                'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
-                'DisplayName', sprintf('Channel %d', ch));
-        end
-
-        % Plot single model phase
+        % Plot single model phase first (for legend order)
         H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
         H_model_phase = angle(H_model) * 180/pi;
         semilogx(freq_smooth, H_model_phase, 'k-', 'LineWidth', 3, ...
             'DisplayName', 'Model');
 
+        % Plot measured phase
+        for ch = 1:6
+            phi = squeeze(H_phase_offset_removed(ch, excited_ch, :));
+            dc_gain_theoretical = B(ch, excited_ch);
+            semilogx(W, phi, 'o-', 'Color', channel_colors(ch), ...
+                'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
+                'DisplayName', sprintf('P%d (B%d%d=%.4f)', excited_ch, ch, excited_ch, dc_gain_theoretical));
+        end
+
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 16);
 
         set(gca, axis_props{:}, font_props{:});
         ylim([-180, 1.5]);
