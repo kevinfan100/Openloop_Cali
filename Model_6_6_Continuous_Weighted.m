@@ -953,8 +953,8 @@ if ENABLE_ONE_MULTI_COMPARISON
         DC_diff = DC_multi - DC_one;
         DC_diff_percent = (DC_diff ./ DC_one) * 100;
 
-        % --- Steady-State Gain Heatmap Comparison ---
-        fprintf('\n--- Steady-State Gain Heatmap Comparison ---\n');
+        % --- Steady-State Gain Matrix Comparison ---
+        fprintf('\n--- Steady-State Gain Matrix Comparison ---\n');
 
         figure('Name', 'Steady-State Gain Comparison: One-Curve vs Multi-Curve', ...
                'Position', [100, 100, 1200, 500]);
@@ -999,7 +999,7 @@ if ENABLE_ONE_MULTI_COMPARISON
         sgtitle('Steady-State Gain Comparison: One-Curve vs Multi-Curve', ...
                 'FontWeight', 'bold', 'FontSize', 18);
 
-        fprintf('✓ Steady-state gain heatmap generated\n');
+        fprintf('✓ Steady-state gain matrix generated\n');
 
         % --- Grouped Bode Plot Comparison (by excitation channel) ---
         fprintf('\n--- Grouped Bode Plot Comparison ---\n');
@@ -1115,7 +1115,7 @@ if ENABLE_ONE_MULTI_COMPARISON
 
         fprintf('\n=== SECTION 9 COMPLETE ===\n');
         fprintf('Generated comparison plots:\n');
-        fprintf('  - Steady-state gain heatmap (2 panels)\n');
+        fprintf('  - Steady-state gain matrix (2 panels)\n');
         fprintf('  - Grouped Bode plots: %d channel(s)\n', length(ONE_MULTI_COMPARISON_CHANNELS));
     end
 else
