@@ -83,7 +83,8 @@ Openloop_cali/
 ├── P5.m
 ├── P6.m
 │
-└── transfer_function_latex.txt        # Stage 3 Output: MIMO model
+├── transfer_function_latex.txt        # Stage 3 Output: Unified MIMO model
+└── one_curve_36_results.mat           # Stage 3 Output: 36 individual transfer functions
 ```
 
 ---
@@ -388,9 +389,31 @@ run('Model_6_6_Continuous_Weighted.m')
 3. Apply weighted least-squares optimization
 4. Perform ZOH continuous-to-discrete conversion (T = 10 μs)
 5. Generate LaTeX output
+6. (Optional) SECTION 9: One-Curve vs Multi-Curve comparison
 
 **Output Files:**
 - `transfer_function_latex.txt` - LaTeX formatted transfer function
+- `one_curve_36_results.mat` - Individual transfer functions (36 elements)
+
+**SECTION 9: Model Comparison (Optional)**
+
+Enable comparison between one-curve and multi-curve fitting methods:
+
+```matlab
+% In Model_6_6_Continuous_Weighted.m, SECTION 1
+ENABLE_ONE_MULTI_COMPARISON = true;
+ONE_MULTI_COMPARISON_CHANNELS = [1, 2, 3, 4, 5, 6];  % Select channels
+```
+
+**Generated Plots:**
+1. **Steady-State Gain Matrix** - 2-panel comparison showing H(s=0) values
+   - Panel 1: One-Curve method (individual fitting)
+   - Panel 2: Multi-Curve method (unified model)
+
+2. **Grouped Bode Plots** - Frequency response comparison by excitation channel
+   - Gray lines: One-Curve individual fits (paired channel highlighted in darker gray)
+   - Black line: Multi-Curve unified model
+   - Legend shows only the paired channel (e.g., P1↔P2, P3↔P4, P5↔P6)
 
 **Output Format Example:**
 ```latex

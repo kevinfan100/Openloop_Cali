@@ -390,10 +390,31 @@ run('Model_6_6_Continuous_Weighted.m')
 4. 應用加權最小平方最佳化
 5. 執行 ZOH 連續時間至離散時間轉換（T = 10 μs）
 6. 產生 LaTeX 輸出
+7. **（可選）SECTION 9：單曲線 vs 多曲線比較**
 
 **輸出檔案：**
 - `transfer_function_latex.txt` - LaTeX 格式統一 MIMO 模型
-- `one_curve_36_results.mat` - **（新增）** 36 組獨立轉移函數參數
+- `one_curve_36_results.mat` - 36 組獨立轉移函數參數
+
+**SECTION 9：模型比較（可選）**
+
+啟用單曲線與多曲線擬合方法的比較：
+
+```matlab
+% 在 Model_6_6_Continuous_Weighted.m 的 SECTION 1 中
+ENABLE_ONE_MULTI_COMPARISON = true;
+ONE_MULTI_COMPARISON_CHANNELS = [1, 2, 3, 4, 5, 6];  % 選擇通道
+```
+
+**產生的圖表：**
+1. **穩態增益矩陣** - 雙面板比較顯示 H(s=0) 數值
+   - 面板 1：單曲線方法（獨立擬合）
+   - 面板 2：多曲線方法（統一模型）
+
+2. **分組波德圖** - 依激勵通道分類的頻率響應比較
+   - 灰色線條：單曲線獨立擬合（配對通道以深灰色強調）
+   - 黑色線條：多曲線統一模型
+   - 圖例僅顯示配對通道（例如 P1↔P2、P3↔P4、P5↔P6）
 
 **輸出格式範例：**
 ```latex
