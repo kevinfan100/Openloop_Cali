@@ -1040,20 +1040,22 @@ if ENABLE_ONE_MULTI_COMPARISON
                         'DisplayName', sprintf('P%d', paired_ch));
                 else
                     semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5, ...
+                        'HandleVisibility', 'off');
                 end
             end
 
             % Plot multi-curve transfer function (black, thick)
             H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
             H_multi_norm = H_multi_smooth / (A2/A2);
-            semilogx(freq_smooth, 20*log10(abs(H_multi_norm)), 'k-', 'LineWidth', 3);
+            semilogx(freq_smooth, 20*log10(abs(H_multi_norm)), 'k-', 'LineWidth', 3, ...
+                'HandleVisibility', 'off');
 
             xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
             ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 24);
             title(sprintf('P%d Excitation - Magnitude', excited_ch), ...
                   'FontWeight', 'bold', 'FontSize', 20);
-            legend('Location', 'northeast', 'FontWeight', 'bold', 'FontSize', 16);
+            legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
             set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
             xlim([min(W), max(W)]);
@@ -1081,20 +1083,22 @@ if ENABLE_ONE_MULTI_COMPARISON
                         'DisplayName', sprintf('P%d', paired_ch));
                 else
                     semilogx(freq_smooth, phase_one, '-', ...
-                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5);
+                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5, ...
+                        'HandleVisibility', 'off');
                 end
             end
 
             % Plot multi-curve phase (black, thick)
             H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
             phase_multi = angle(H_multi_smooth) * 180/pi;
-            semilogx(freq_smooth, phase_multi, 'k-', 'LineWidth', 3);
+            semilogx(freq_smooth, phase_multi, 'k-', 'LineWidth', 3, ...
+                'HandleVisibility', 'off');
 
             xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
             ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 24);
             title(sprintf('P%d Excitation - Phase', excited_ch), ...
                   'FontWeight', 'bold', 'FontSize', 20);
-            legend('Location', 'northeast', 'FontWeight', 'bold', 'FontSize', 16);
+            legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
             set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
             xlim([min(W), max(W)]);
