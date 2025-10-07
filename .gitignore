@@ -6,3 +6,22 @@ plot_csv_data.m
 
 # Claude Code settings
 .claude/
+# vscode setting
+.vscode/
+# Fitting result files
+transfer_function_latex.txt
+one_curve_36_results.mat
+
+# MATLAB/Simulink generated files
+*.slx.autosave
+*.slxc
+slprj/
+*.asv
+
+# Generated plots and results
+Pic_all_result/
+
+# Backup files
+*.zip
+*.rar
+*.7z
