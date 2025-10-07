@@ -35,8 +35,7 @@ This project provides an end-to-end pipeline for **open-loop frequency response 
 - ✅ **MIMO Model Fitting**: 6×6 transfer function matrix identification
 - ✅ **Robust Signal Processing**: Advanced interpolation, noise handling, and validation
 
-### Application Domain:
-Multi-channel control systems requiring frequency domain characterization (e.g., magnetic levitation, vibration isolation, precision positioning)
+
 
 ---
 

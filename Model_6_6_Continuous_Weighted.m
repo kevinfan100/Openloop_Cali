@@ -60,19 +60,19 @@ T_sample = 1e-5;                    % Sampling time [s] (10 μs, Fs = 100 kHz)
 k_A_diag = [0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610];
 
 % --- Output and Visualization Control ---
-PLOT_ONE_CURVE = false;             % Plot single curve Bode diagram
-PLOT_MULTI_CURVE = false;           % Plot multiple curves Bode diagram
+PLOT_ONE_CURVE = true;             % Plot single curve Bode diagram
+PLOT_MULTI_CURVE = true;           % Plot multiple curves Bode diagram
 MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,P5)
 
-OUTPUT_LATEX = true;                % Generate LaTeX output file
+OUTPUT_LATEX = false;                % Generate LaTeX output file
 LATEX_FILENAME = 'transfer_function_latex.txt';
 
 % --- 36-Channel Single Curve Fitting Control ---
-SAVE_ONE_CURVE_RESULTS = true;      % Save individual transfer function parameters
+SAVE_ONE_CURVE_RESULTS = false;      % Save individual transfer function parameters
 ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
 % --- SECTION 9: One-Curve vs Multi-Curve Comparison Control ---
-ENABLE_ONE_MULTI_COMPARISON = false;     % Enable comparison plots
+ENABLE_ONE_MULTI_COMPARISON = true;     % Enable comparison plots
 ONE_MULTI_COMPARISON_CHANNELS = [1];     % Excitation channels to compare (e.g., [1,3,5])
 
 %% SECTION 2: DATA LOADING
@@ -734,7 +734,7 @@ if PLOT_ONE_CURVE
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 20);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
 
         set(gca, axis_props{:}, font_props{:});
         y_min = min(h_db_norm) - 5;
@@ -840,7 +840,7 @@ if PLOT_MULTI_CURVE
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 16);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
         ylim([-180, 1.5]);
@@ -1099,91 +1099,10 @@ if ENABLE_ONE_MULTI_COMPARISON
         fprintf('✓ Generated %d grouped Bode comparison plot(s)\n', ...
                 length(ONE_MULTI_COMPARISON_CHANNELS));
 
-        % --- Task 11: Full 36-Curve Bode Plot Comparison ---
-        fprintf('\n--- Full 36-Curve Bode Plot Comparison ---\n');
-
-        figure('Name', 'Full 36-Curve Bode Comparison', ...
-               'Position', [150, 50, 1000, 900]);
-
-        % === Magnitude Plot ===
-        subplot(2, 1, 1);
-        hold on;
-
-        % Plot all 36 one-curve transfer functions (gray)
-        for i = 1:6
-            for j = 1:6
-                a1_one = one_curve_results.a1_matrix(i, j);
-                a2_one = one_curve_results.a2_matrix(i, j);
-                b_one = one_curve_results.b_matrix(i, j);
-
-                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
-                dc_gain_one = b_one / a2_one;
-                H_one_norm = H_one_smooth / dc_gain_one;
-
-                semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                    'Color', [0.7 0.7 0.7], 'LineWidth', 1);
-            end
-        end
-
-        % Plot multi-curve transfer function (black, thick)
-        H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
-        H_multi_norm = H_multi_smooth / (A2/A2);
-        semilogx(freq_smooth, 20*log10(abs(H_multi_norm)), 'k-', 'LineWidth', 3);
-
-        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
-        ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 24);
-        title('All 36 Transfer Functions - Magnitude', 'FontWeight', 'bold', 'FontSize', 20);
-
-        set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
-        xlim([min(W), max(W)]);
-        ylim([-30, 1]);
-        grid on;
-        box on;
-
-        % === Phase Plot ===
-        subplot(2, 1, 2);
-        hold on;
-
-        % Plot all 36 one-curve phases (gray)
-        for i = 1:6
-            for j = 1:6
-                a1_one = one_curve_results.a1_matrix(i, j);
-                a2_one = one_curve_results.a2_matrix(i, j);
-                b_one = one_curve_results.b_matrix(i, j);
-
-                H_one_smooth = b_one ./ (s_smooth.^2 + a1_one*s_smooth + a2_one);
-                phase_one = angle(H_one_smooth) * 180/pi;
-
-                semilogx(freq_smooth, phase_one, '-', ...
-                    'Color', [0.7 0.7 0.7], 'LineWidth', 1);
-            end
-        end
-
-        % Plot multi-curve phase (black, thick)
-        H_multi_smooth = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
-        phase_multi = angle(H_multi_smooth) * 180/pi;
-        semilogx(freq_smooth, phase_multi, 'k-', 'LineWidth', 3);
-
-        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 24);
-        ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 24);
-        title('All 36 Transfer Functions - Phase', 'FontWeight', 'bold', 'FontSize', 20);
-
-        set(gca, 'XScale', 'log', 'FontSize', 18, 'LineWidth', 2);
-        xlim([min(W), max(W)]);
-        ylim([-180, 5]);
-        grid on;
-        box on;
-
-        sgtitle('Full 36-Curve Bode Comparison\n(Gray: Individual One-Curve, Black: Unified Multi-Curve)', ...
-                'FontWeight', 'bold', 'FontSize', 18);
-
-        fprintf('✓ Full 36-curve Bode comparison generated\n');
-
         fprintf('\n=== SECTION 9 COMPLETE ===\n');
         fprintf('Generated comparison plots:\n');
         fprintf('  - DC gain heatmap (3 panels)\n');
         fprintf('  - Grouped Bode plots: %d channel(s)\n', length(ONE_MULTI_COMPARISON_CHANNELS));
-        fprintf('  - Full 36-curve Bode plot\n');
     end
 else
     fprintf('\n=== SECTION 9: SKIPPED ===\n');
