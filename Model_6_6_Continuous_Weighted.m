@@ -35,7 +35,7 @@ excited_channel = 1;                % Input channel index (excitation source)
 
 ENABLE_PARAM_COMPARISON = false;    % Enable parameter comparison mode
 p_single = 0.5;                     % Weighting exponent (0.5 or 1)
-wc_single_Hz = 10;                  % Cutoff frequency [Hz] for low-pass weighting
+wc_single_Hz = 1;                  % Cutoff frequency [Hz] for low-pass weighting
 
 % Parameter sets for comparison (when ENABLE_PARAM_COMPARISON = true)
 % Each row: [p, wc_Hz]
@@ -73,7 +73,7 @@ ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
 % --- SECTION 9: One-Curve vs Multi-Curve Comparison Control ---
 ENABLE_ONE_MULTI_COMPARISON = true;     % Enable comparison plots
-ONE_MULTI_COMPARISON_CHANNELS = [1];     % Excitation channels to compare (e.g., [1,3,5])
+ONE_MULTI_COMPARISON_CHANNELS = [1,2,3,4,5,6];     % Excitation channels to compare (e.g., [1,3,5])
 
 %% SECTION 2: DATA LOADING
 
@@ -1040,7 +1040,7 @@ if ENABLE_ONE_MULTI_COMPARISON
                         'DisplayName', sprintf('P%d', paired_ch));
                 else
                     semilogx(freq_smooth, 20*log10(abs(H_one_norm)), '-', ...
-                        'Color', [0.7 0.7 0.7], 'LineWidth', 1.5, ...
+                        'Color', [0.8 0.8 0.8], 'LineWidth', 1.5, ...
                         'HandleVisibility', 'off');
                 end
             end
