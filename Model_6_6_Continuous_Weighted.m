@@ -937,6 +937,15 @@ if ENABLE_ONE_MULTI_COMPARISON
         % One-Curve: DC gain = b(i,j) / a2(i,j)
         DC_one = one_curve_results.b_matrix ./ one_curve_results.a2_matrix;
 
+        % Apply same sign modification as Multi-Curve (negate off-diagonal elements)
+        for i = 1:6
+            for j = 1:6
+                if i ~= j
+                    DC_one(i,j) = -DC_one(i,j);
+                end
+            end
+        end
+
         % Multi-Curve: DC gain = B(i,j) (already normalized by A2)
         DC_multi = B_modified;  % Using B_modified which has correct signs
 
