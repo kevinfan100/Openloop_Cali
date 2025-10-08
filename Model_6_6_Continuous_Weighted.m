@@ -30,12 +30,12 @@ num_freq = 19;              % Number of frequency points
 
 % --- Single Curve Fitting Parameters (for validation) ---
 % Used for testing individual transfer function fitting
-channel = 1;                        % Output channel index
+channel = 2;                        % Output channel index
 excited_channel = 1;                % Input channel index (excitation source)
 
 ENABLE_PARAM_COMPARISON = false;    % Enable parameter comparison mode
 p_single = 0.5;                     % Weighting exponent (0.5 or 1)
-wc_single_Hz = 10;                  % Cutoff frequency [Hz] for low-pass weighting
+wc_single_Hz = 0.1;                  % Cutoff frequency [Hz] for low-pass weighting
 
 % Parameter sets for comparison (when ENABLE_PARAM_COMPARISON = true)
 % Each row: [p, wc_Hz]
@@ -61,7 +61,7 @@ k_A_diag = [0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610];
 
 % --- Output and Visualization Control ---
 PLOT_ONE_CURVE = true;             % Plot single curve Bode diagram
-PLOT_MULTI_CURVE = true;           % Plot multiple curves Bode diagram
+PLOT_MULTI_CURVE = false;           % Plot multiple curves Bode diagram
 MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,P5)
 
 OUTPUT_LATEX = true;                % Generate LaTeX output file
