@@ -25,3 +25,19 @@ Pic_all_result/
 *.zip
 *.rar
 *.7z
+
+# Simulation results
+results/*.mat
+results/*.fig
+results/*.png
+results/*.jpg
+
+# Keep folder structure
+!results/.gitkeep
+!controllers/.gitkeep
+!scripts/.gitkeep
+
+# Simulink backup files
+*.slx.r2024a
+*.slx.r2023b
+*.slx.r2023a
