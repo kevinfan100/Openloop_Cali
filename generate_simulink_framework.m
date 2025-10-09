@@ -4,17 +4,16 @@
 % Purpose:
 %   建立包含以下元件的完整控制系統：
 %     - 參考訊號 Vd (6×1)
-%     - 誤差計算 e = Vd - Vm
-%     - 控制器接口（輸入 e，輸出 u）
+%     - 控制器接口（輸入 Vd, Vm，輸出 u）
 %     - DAC + Plant + ADC
 %     - 輸出訊號 Vm (6×1)
-%     - 監測訊號（u, e, Vm, Vm_analog）
+%     - 監測訊號（u, Vm, Vm_analog）
 %
 % Usage:
 %   1. Run Model_6_6_Continuous_Weighted.m to generate one_curve_36_results.mat
 %   2. Run this script: generate_simulink_framework
 %   3. Open model: open_system('Control_System_Framework')
-%   4. Add controller block and connect e_out → Controller → u_in
+%   4. Add controller block: From_Vd, From_Vm → [Controller] → u_in
 %
 % Output:
 %   Control_System_Framework.slx - Complete control system framework
@@ -22,11 +21,11 @@
 % Signal Naming:
 %   Vd - 參考電壓 (Desired voltage)
 %   Vm - 測量電壓 (Measured voltage)
-%   e  - 誤差 (error)
 %   u  - 控制訊號 (control signal)
 %
 % Author: Claude Code
-% Date: 2025-10-07
+% Date: 2025-10-09
+% Modified: 2025-10-09 - Changed controller interface to (Vd, Vm) → u
 
 function generate_simulink_framework()
     %% Load transfer function data
@@ -50,7 +49,7 @@ function generate_simulink_framework()
     fprintf('System Configuration:\n');
     fprintf('  - Sample Time: %.0f μs (%.0f kHz)\n', Ts*1e6, 1/Ts/1000);
     fprintf('  - Transfer Functions: 36 (6×6 MIMO)\n');
-    fprintf('  - Control Interface: e_out → [Controller] → u_in\n');
+    fprintf('  - Control Interface: (Vd, Vm) → [Controller] → u_in\n');
     fprintf('\n');
 
     %% Model configuration
@@ -71,20 +70,21 @@ function generate_simulink_framework()
 
     % 水平位置
     vd_x = 50;                  % 參考訊號 Vd
-    sum_x = 250;                % 誤差計算 Sum
-    e_out_x = 400;              % 誤差輸出埠 e_out
+    goto_vd_x = 180;            % Goto_Vd
+    controller_x = 400;         % 控制器區域（From_Vd, From_Vm）
     u_in_x = 600;               % 控制訊號輸入埠 u_in
     dac_x = 800;                % DAC
     plant_x = 1100;             % 受控體
     adc_x = 1500;               % ADC
     vm_x = 1700;                % 輸出 Vm
+    goto_vm_x = 1850;           % Goto_Vm
 
     % 垂直位置
     main_y = 200;               % 主訊號鏈
     monitor_y = 500;            % 監測訊號區
 
     %% ========================================
-    %  Section 1: 參考訊號 Vd
+    %  Section 1: 參考訊號 Vd & Goto
     %  ========================================
 
     fprintf('Creating reference signal Vd...\n');
@@ -96,38 +96,48 @@ function generate_simulink_framework()
         'SampleTime', num2str(Ts), ...
         'Position', [vd_x, main_y-20, vd_x+50, main_y+20]);
 
+    % Goto block for Vd (供控制器使用)
+    add_block('simulink/Signal Routing/Goto', [model_name '/Goto_Vd']);
+    set_param([model_name '/Goto_Vd'], ...
+        'GotoTag', 'Vd_to_Controller', ...
+        'TagVisibility', 'local', ...
+        'Position', [goto_vd_x, main_y-15, goto_vd_x+40, main_y+15]);
+
+    add_line(model_name, 'Vd/1', 'Goto_Vd/1', 'autorouting', 'on');
+
     %% ========================================
-    %  Section 2: 誤差計算 (e = Vd - Vm)
+    %  Section 2: 控制器接口 - From Vd & From Vm
     %  ========================================
 
-    fprintf('Creating error calculation (e = Vd - Vm)...\n');
+    fprintf('Creating controller interface (From_Vd, From_Vm)...\n');
 
-    % Sum block: e = Vd - Vm
-    add_block('simulink/Math Operations/Sum', [model_name '/Error_Sum']);
-    set_param([model_name '/Error_Sum'], ...
-        'Inputs', '+-', ...
-        'IconShape', 'rectangular', ...
-        'Position', [sum_x, main_y-20, sum_x+40, main_y+20]);
+    % From block: Vd
+    add_block('simulink/Signal Routing/From', [model_name '/From_Vd']);
+    set_param([model_name '/From_Vd'], ...
+        'GotoTag', 'Vd_to_Controller', ...
+        'IconDisplay', 'Tag', ...
+        'Position', [controller_x, main_y-40, controller_x+50, main_y-20]);
 
-    % 連接 Vd → Sum
-    add_line(model_name, 'Vd/1', 'Error_Sum/1', 'autorouting', 'on');
+    % From block: Vm
+    add_block('simulink/Signal Routing/From', [model_name '/From_Vm']);
+    set_param([model_name '/From_Vm'], ...
+        'GotoTag', 'Vm_to_Controller', ...
+        'IconDisplay', 'Tag', ...
+        'Position', [controller_x, main_y+20, controller_x+50, main_y+40]);
+
+    % Terminator blocks (暫時終止訊號，等待控制器替換)
+    add_block('simulink/Sinks/Terminator', [model_name '/Term_Vd']);
+    set_param([model_name '/Term_Vd'], ...
+        'Position', [controller_x+70, main_y-40, controller_x+90, main_y-20]);
+    add_line(model_name, 'From_Vd/1', 'Term_Vd/1', 'autorouting', 'on');
+
+    add_block('simulink/Sinks/Terminator', [model_name '/Term_Vm']);
+    set_param([model_name '/Term_Vm'], ...
+        'Position', [controller_x+70, main_y+20, controller_x+90, main_y+40]);
+    add_line(model_name, 'From_Vm/1', 'Term_Vm/1', 'autorouting', 'on');
 
     %% ========================================
-    %  Section 3: 控制器接口 - 誤差輸出 e_out
-    %  ========================================
-
-    fprintf('Creating controller interface (e_out)...\n');
-
-    % 輸出埠：e_out (誤差訊號，6×1)
-    add_block('simulink/Sinks/Out1', [model_name '/e_out']);
-    set_param([model_name '/e_out'], ...
-        'Position', [e_out_x, main_y-10, e_out_x+30, main_y+10]);
-
-    % 連接 Error_Sum → e_out
-    add_line(model_name, 'Error_Sum/1', 'e_out/1', 'autorouting', 'on');
-
-    %% ========================================
-    %  Section 4: 控制器接口 - 控制訊號輸入 u_in
+    %  Section 3: 控制器接口 - 控制訊號輸入 u_in
     %  ========================================
 
     fprintf('Creating controller interface (u_in)...\n');
@@ -138,7 +148,7 @@ function generate_simulink_framework()
         'Position', [u_in_x, main_y-10, u_in_x+30, main_y+10]);
 
     %% ========================================
-    %  Section 5: DAC (Zero-Order Hold × 6)
+    %  Section 4: DAC (Zero-Order Hold × 6)
     %  ========================================
 
     fprintf('Creating DAC subsystem...\n');
@@ -176,7 +186,7 @@ function generate_simulink_framework()
     end
 
     %% ========================================
-    %  Section 6: Plant Subsystem (36 TF)
+    %  Section 5: Plant Subsystem (36 TF)
     %  ========================================
 
     fprintf('Creating plant subsystem...\n');
@@ -212,7 +222,7 @@ function generate_simulink_framework()
     add_line(model_name, 'Mux_DAC/1', 'Plant_Subsystem/1', 'autorouting', 'on');
 
     %% ========================================
-    %  Section 7: ADC (Zero-Order Hold × 6)
+    %  Section 6: ADC (Zero-Order Hold × 6)
     %  ========================================
 
     fprintf('Creating ADC subsystem...\n');
@@ -249,7 +259,7 @@ function generate_simulink_framework()
     end
 
     %% ========================================
-    %  Section 8: 輸出 Vm
+    %  Section 7: 輸出 Vm & Goto
     %  ========================================
 
     fprintf('Creating output Vm...\n');
@@ -261,17 +271,17 @@ function generate_simulink_framework()
 
     add_line(model_name, 'Mux_Vm/1', 'Vm/1', 'autorouting', 'on');
 
+    % Goto block for Vm (供控制器使用)
+    add_block('simulink/Signal Routing/Goto', [model_name '/Goto_Vm']);
+    set_param([model_name '/Goto_Vm'], ...
+        'GotoTag', 'Vm_to_Controller', ...
+        'TagVisibility', 'local', ...
+        'Position', [goto_vm_x, main_y-15, goto_vm_x+40, main_y+15]);
+
+    add_line(model_name, 'Mux_Vm/1', 'Goto_Vm/1', 'autorouting', 'on');
+
     %% ========================================
-    %  Section 9: 回授連線 (Vm → Error_Sum)
-    %  ========================================
-
-    fprintf('Creating feedback loop (Vm → Error_Sum)...\n');
-
-    % Vm → Error_Sum 的第 2 個輸入（負回授）
-    add_line(model_name, 'Mux_Vm/1', 'Error_Sum/2', 'autorouting', 'on');
-
-    %% ========================================
-    %  Section 10: 監測訊號 (Scopes & To Workspace)
+    %  Section 8: 監測訊號 (Scopes & To Workspace)
     %  ========================================
 
     fprintf('Creating monitoring signals...\n');
@@ -288,19 +298,7 @@ function generate_simulink_framework()
         'Position', [u_in_x+50, monitor_y+60, u_in_x+100, monitor_y+90]);
     add_line(model_name, 'u_in/1', 'u_log/1', 'autorouting', 'on');
 
-    % 監測訊號 2: e (誤差)
-    add_block('simulink/Sinks/Scope', [model_name '/Scope_e']);
-    set_param([model_name '/Scope_e'], ...
-        'Position', [e_out_x+50, monitor_y, e_out_x+100, monitor_y+40]);
-    add_line(model_name, 'Error_Sum/1', 'Scope_e/1', 'autorouting', 'on');
-
-    add_block('simulink/Sinks/To Workspace', [model_name '/e_log']);
-    set_param([model_name '/e_log'], ...
-        'VariableName', 'e', ...
-        'Position', [e_out_x+50, monitor_y+60, e_out_x+100, monitor_y+90]);
-    add_line(model_name, 'Error_Sum/1', 'e_log/1', 'autorouting', 'on');
-
-    % 監測訊號 3: Vm (輸出)
+    % 監測訊號 2: Vm (輸出)
     add_block('simulink/Sinks/Scope', [model_name '/Scope_Vm']);
     set_param([model_name '/Scope_Vm'], ...
         'Position', [vm_x+50, monitor_y, vm_x+100, monitor_y+40]);
@@ -312,7 +310,7 @@ function generate_simulink_framework()
         'Position', [vm_x+50, monitor_y+60, vm_x+100, monitor_y+90]);
     add_line(model_name, 'Mux_Vm/1', 'Vm_log/1', 'autorouting', 'on');
 
-    % 監測訊號 4: Vm_analog (類比輸出，從 Plant 直接取)
+    % 監測訊號 3: Vm_analog (類比輸出，從 Plant 直接取)
     add_block('simulink/Signal Routing/Mux', [model_name '/Mux_Vm_analog']);
     set_param([model_name '/Mux_Vm_analog'], ...
         'Inputs', '6', ...
@@ -329,102 +327,76 @@ function generate_simulink_framework()
     add_line(model_name, 'Mux_Vm_analog/1', 'Vm_analog_log/1', 'autorouting', 'on');
 
     %% ========================================
-    %  Section 11: 標註與文件
+    %  Section 9: 標註與文件
     %  ========================================
 
     % 主標註
-    annotation_text = sprintf(['Control System Framework (Controller Interface)\n' ...
-                               'Generated: %s\n\n' ...
+    annotation_text = sprintf(['Control System Framework (Controller Interface v2)\n' ...
+                               'Modified: 2025-10-09\n\n' ...
                                '=== SIGNAL FLOW ===\n' ...
-                               'Vd (6×1) → [Sum] → e_out → [CONTROLLER] → u_in → [DAC] → [Plant] → [ADC] → Vm (6×1)\n' ...
-                               '                    ↑                                                        │\n' ...
-                               '                    └────────────────────────────────────────────────────────┘\n\n' ...
-                               '=== INTERFACE ===\n' ...
-                               'OUTPUT: e_out (6×1) - Error signal to controller\n' ...
-                               'INPUT:  u_in  (6×1) - Control signal from controller\n\n' ...
+                               'Vd (6×1) → [Goto_Vd] → [From_Vd] → [CONTROLLER] → u_in → [DAC] → [Plant] → [ADC] → Vm (6×1) → [Goto_Vm] → [From_Vm]\n' ...
+                               '                                         ↑                                                             │\n' ...
+                               '                                         └─────────────────────────────────────────────────────────────┘\n\n' ...
+                               '=== CONTROLLER INTERFACE ===\n' ...
+                               'INPUT 1:  From_Vd (6×1) - Reference signal (via Goto/From)\n' ...
+                               'INPUT 2:  From_Vm (6×1) - Measured output (via Goto/From)\n' ...
+                               'OUTPUT:   u_in (6×1)    - Control signal\n\n' ...
                                '=== MONITORING ===\n' ...
-                               '- Scope_u, u_log:         Control signal\n' ...
-                               '- Scope_e, e_log:         Error signal\n' ...
-                               '- Scope_Vm, Vm_log:       Measured output (digital)\n' ...
-                               '- Vm_analog_log:          Analog output\n\n' ...
-                               'Sample Time: %.0f μs (Fs = %.0f kHz)'], ...
-                               datestr(now), Ts*1e6, 1/Ts/1000);
+                               '- Scope_u, u_log:       Control signal\n' ...
+                               '- Scope_Vm, Vm_log:     Measured output (digital)\n' ...
+                               '- Vm_analog_log:        Analog output\n\n' ...
+                               'Sample Time: %.0f μs (Fs = %.0f kHz)\n\n' ...
+                               'NOTE: Error calculation (e = Vd - Vm) should be done inside controller'], ...
+                               Ts*1e6, 1/Ts/1000);
 
     add_block('built-in/Note', [model_name '/Info'], ...
               'Position', [50, 700], ...
               'Text', annotation_text, ...
-              'FontSize', '10', ...
+              'FontSize', '9', ...
               'FontWeight', 'bold');
 
-    % 區域標註
-    add_block('built-in/Note', [model_name '/Label_Ref'], ...
-              'Position', [vd_x, main_y-80], ...
-              'Text', 'Reference: Vd', ...
-              'FontSize', '12', ...
-              'ForegroundColor', 'blue');
-
-    add_block('built-in/Note', [model_name '/Label_Error'], ...
-              'Position', [sum_x, main_y-80], ...
-              'Text', 'Error: e = Vd - Vm', ...
-              'FontSize', '12', ...
-              'ForegroundColor', 'blue');
-
-    add_block('built-in/Note', [model_name '/Label_Controller'], ...
-              'Position', [(e_out_x + u_in_x)/2 - 50, main_y-80], ...
-              'Text', '>>> INSERT CONTROLLER HERE <<<', ...
-              'FontSize', '14', ...
+    % 區域標註（簡化版，只標示關鍵接口）
+    add_block('built-in/Note', [model_name '/Label_Controller_Interface'], ...
+              'Position', [controller_x - 30, main_y-100], ...
+              'Text', ['╔═══════════════════════════╗\n' ...
+                       '║  CONTROLLER INTERFACE     ║\n' ...
+                       '╠═══════════════════════════╣\n' ...
+                       '║  INPUT 1: From_Vd (6×1)   ║\n' ...
+                       '║  INPUT 2: From_Vm (6×1)   ║\n' ...
+                       '║  OUTPUT:  → u_in (6×1)    ║\n' ...
+                       '╚═══════════════════════════╝'], ...
+              'FontSize', '10', ...
               'FontWeight', 'bold', ...
               'ForegroundColor', 'red');
-
-    add_block('built-in/Note', [model_name '/Label_Plant'], ...
-              'Position', [plant_x+50, main_y-80], ...
-              'Text', 'Plant (36 TF)', ...
-              'FontSize', '12', ...
-              'ForegroundColor', 'blue');
-
-    add_block('built-in/Note', [model_name '/Label_Output'], ...
-              'Position', [vm_x, main_y-80], ...
-              'Text', 'Output: Vm', ...
-              'FontSize', '12', ...
-              'ForegroundColor', 'blue');
-
-    add_block('built-in/Note', [model_name '/Label_Monitor'], ...
-              'Position', [50, monitor_y-50], ...
-              'Text', '=== MONITORING SIGNALS ===', ...
-              'FontSize', '14', ...
-              'FontWeight', 'bold', ...
-              'ForegroundColor', 'green');
 
     %% Save model
     save_system(model_name);
 
     fprintf('\n✓ Control system framework created: %s.slx\n', model_name);
     fprintf('\n=== Model Structure ===\n');
-    fprintf('  INPUTS:\n');
-    fprintf('    - Vd:    Reference signal (Constant, 6×1)\n');
-    fprintf('    - u_in:  Control signal from controller (6×1)\n');
+    fprintf('  CONTROLLER INTERFACE:\n');
+    fprintf('    - From_Vd:  Reference signal (6×1) - via Goto/From\n');
+    fprintf('    - From_Vm:  Measured output (6×1) - via Goto/From\n');
+    fprintf('    - u_in:     Control signal input (6×1)\n');
     fprintf('\n');
     fprintf('  OUTPUTS:\n');
-    fprintf('    - e_out: Error signal to controller (6×1)\n');
-    fprintf('    - Vm:    Measured output (6×1)\n');
+    fprintf('    - Vm:       Measured output (6×1)\n');
     fprintf('\n');
     fprintf('  MONITORING:\n');
     fprintf('    - Scope_u, u_log:      Control signal u\n');
-    fprintf('    - Scope_e, e_log:      Error signal e\n');
     fprintf('    - Scope_Vm, Vm_log:    Digital output Vm\n');
     fprintf('    - Vm_analog_log:       Analog output Vm_analog\n');
     fprintf('\n');
     fprintf('=== Next Steps ===\n');
     fprintf('  1. Open model: open_system(''%s'')\n', model_name);
-    fprintf('  2. Add controller: Connect e_out → [Controller] → u_in\n');
-    fprintf('  3. Configure solver and run simulation\n');
+    fprintf('  2. Delete Term_Vd and Term_Vm blocks\n');
+    fprintf('  3. Add controller: From_Vd, From_Vm → [Controller] → u_in\n');
+    fprintf('  4. Configure solver and run simulation\n');
     fprintf('\n');
-    fprintf('=== Controller Interface ===\n');
-    fprintf('  To add a simple proportional controller:\n');
-    fprintf('    add_block(''simulink/Math Operations/Gain'', ''%s/Controller'');\n', model_name);
-    fprintf('    set_param(''%s/Controller'', ''Gain'', ''eye(6)*0.5'');\n', model_name);
-    fprintf('    add_line(''%s'', ''e_out/1'', ''Controller/1'');\n', model_name);
-    fprintf('    add_line(''%s'', ''Controller/1'', ''u_in/1'');\n', model_name);
+    fprintf('=== Controller Interface (Goto/From) ===\n');
+    fprintf('  Vd signal available via: ''Vd_to_Controller'' tag\n');
+    fprintf('  Vm signal available via: ''Vm_to_Controller'' tag\n');
+    fprintf('  Use From blocks to access these signals in your controller\n');
     fprintf('\n');
 end
 

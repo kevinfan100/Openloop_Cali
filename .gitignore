@@ -1,43 +1,139 @@
-# CSV data files
-*.csv
+# ===================================
+# Openloop_Cali Project .gitignore
+# ===================================
+# Last Updated: 2025-10-09
 
-# Plot script
-plot_csv_data.m
-
-# Claude Code settings
-.claude/
-# vscode setting
-.vscode/
-# Fitting result files
-transfer_function_latex.txt
-one_curve_36_results.mat
-
-# MATLAB/Simulink generated files
+# ========================================
+#  MATLAB/Simulink Generated Files
+# ========================================
 *.slx.autosave
 *.slxc
 slprj/
 *.asv
-
-# Generated plots and results
-Pic_all_result/
-
-# Backup files
-*.zip
-*.rar
-*.7z
-
-# Simulation results
-results/*.mat
-results/*.fig
-results/*.png
-results/*.jpg
-
-# Keep folder structure
-!results/.gitkeep
-!controllers/.gitkeep
-!scripts/.gitkeep
+codegen/
 
 # Simulink backup files
 *.slx.r2024a
 *.slx.r2023b
 *.slx.r2023a
+
+# ========================================
+#  Temporary & Debug Files (禁止提交！)
+# ========================================
+# 臨時測試檔案
+*_temp.m
+*_test.m
+*_debug.m
+*_tmp.m
+*_backup.m
+
+# 檢查/檢視工具（開發完成後必須刪除）
+check_*.m
+inspect_*.m
+set_*.m
+
+# 版本迭代檔案（使用 Git 版本控制，不要建立 v2, v3）
+*_v2.m
+*_v3.m
+*_v[0-9]*.m
+*_old.m
+*_new.m
+*_copy.m
+
+# 修改腳本（任務完成後應刪除）
+modify_*.m
+
+# ========================================
+#  Data Files
+# ========================================
+# CSV data files
+*.csv
+
+# Fitting result files (暫時排除，可選擇性提交)
+transfer_function_latex.txt
+# one_curve_36_results.mat  # 重要！已移除排除，會被提交
+
+# ========================================
+#  Results & Outputs
+# ========================================
+# Generated plots and results
+Pic_all_result/
+
+# Simulation results (提交關鍵結果即可)
+results/*.mat
+results/*.fig
+results/*.png
+results/*.jpg
+
+# 保留重要範例
+!results/example_*.mat
+!results/example_*.fig
+
+# Scattered plot files (should be in results/)
+*.png
+*.jpg
+!docs/*.png
+!docs/*.jpg
+!scripts/results/*.png
+
+# ========================================
+#  Logs & Archives
+# ========================================
+# Log files
+Log/*.txt
+Log/*.log
+*_log.txt
+*_report.txt
+
+# Backup & Archive files
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# ========================================
+#  IDE & Editor Settings
+# ========================================
+# Claude Code settings
+.claude/
+
+# VSCode settings
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# MATLAB Project
+*.prj
+
+# ========================================
+#  Operating System Files
+# ========================================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# ========================================
+#  Keep Folder Structure
+# ========================================
+!results/.gitkeep
+!controllers/.gitkeep
+!scripts/.gitkeep
+!docs/.gitkeep
+
+# ========================================
+#  Project-Specific Rules
+# ========================================
+# Plot scripts (not core functionality)
+plot_csv_data.m
+
+# Markdown files with encoding issues
+*\347\232\204*.md
+*\351\240\273*.md
+*\346\216\247*.md
