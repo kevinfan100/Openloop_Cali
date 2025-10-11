@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(git init:*)",
+      "Bash(del NUL)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo view:*)",
+      "Bash(git checkout:*)",
+      "Bash(matlab:*)",
+      "Bash(code:*)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(rm:*)",
+      "Bash(git rm:*)",
+      "Bash(move:*)",
+      "Bash(ren:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -c \"(New-Object Media.SoundPlayer 'C:\\Windows\\Media\\chimes.wav').PlaySync()\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \".claude\\notification.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

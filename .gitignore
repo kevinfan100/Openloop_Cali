@@ -95,8 +95,6 @@ Log/*.log
 # ========================================
 #  IDE & Editor Settings
 # ========================================
-# Claude Code settings
-.claude/
 
 # VSCode settings
 .vscode/
