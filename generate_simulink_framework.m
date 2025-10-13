@@ -26,6 +26,7 @@
 % Author: Claude Code
 % Date: 2025-10-09
 % Modified: 2025-10-09 - Changed controller interface to (Vd, Vm) → u
+% Updated: 2025-10-12 - 記錄實際調整後的模塊位置
 
 function generate_simulink_framework()
     %% Load transfer function data
@@ -65,23 +66,28 @@ function generate_simulink_framework()
     open_system(model_name);
 
     %% ========================================
-    %  Layout Parameters
+    %  Layout Parameters - 基於實際調整後的位置
     %  ========================================
+    fprintf('✓ 使用實際調整後的佈局參數\n\n');
 
-    % 水平位置
-    vd_x = 50;                  % 參考訊號 Vd
-    goto_vd_x = 180;            % Goto_Vd
-    controller_x = 400;         % 控制器區域（From_Vd, From_Vm）
-    u_in_x = 600;               % 控制訊號輸入埠 u_in
-    dac_x = 800;                % DAC
-    plant_x = 1100;             % 受控體
-    adc_x = 1500;               % ADC
-    vm_x = 1700;                % 輸出 Vm
-    goto_vm_x = 1850;           % Goto_Vm
+    % 水平位置（基於實際模型測量）
+    vd_x = 510;                 % 參考訊號 Vd
+    goto_vd_x = 610;            % Goto_Vd
+    controller_x = 505;         % 控制器區域（From_Vd, From_Vm）
+    u_in_x = 810;               % 控制訊號輸入埠 u_in
+    dac_x = 985;                % DAC
+    plant_x = 1110;             % 受控體
+    adc_x = 1425;               % ADC
+    vm_x = 1580;                % 輸出 Vm
+    goto_vm_x = 1570;           % Goto_Vm
 
-    % 垂直位置
-    main_y = 200;               % 主訊號鏈
+    % 垂直位置（基於實際模型測量）
+    main_y = 290;               % 主訊號鏈中心
+    vd_y = 185;                 % Vd 位置
     monitor_y = 500;            % 監測訊號區
+
+    % DAC/ADC 垂直間距
+    row_spacing = 60;
 
     %% ========================================
     %  Section 1: 參考訊號 Vd & Goto
@@ -94,14 +100,14 @@ function generate_simulink_framework()
     set_param([model_name '/Vd'], ...
         'Value', '[1; 1; 1; 1; 1; 1]', ...
         'SampleTime', num2str(Ts), ...
-        'Position', [vd_x, main_y-20, vd_x+50, main_y+20]);
+        'Position', [vd_x, vd_y-20, vd_x+50, vd_y+20]);
 
     % Goto block for Vd (供控制器使用)
     add_block('simulink/Signal Routing/Goto', [model_name '/Goto_Vd']);
     set_param([model_name '/Goto_Vd'], ...
         'GotoTag', 'Vd_to_Controller', ...
         'TagVisibility', 'local', ...
-        'Position', [goto_vd_x, main_y-15, goto_vd_x+40, main_y+15]);
+        'Position', [goto_vd_x, vd_y-10, goto_vd_x+50, vd_y+10]);
 
     add_line(model_name, 'Vd/1', 'Goto_Vd/1', 'autorouting', 'on');
 
@@ -116,24 +122,24 @@ function generate_simulink_framework()
     set_param([model_name '/From_Vd'], ...
         'GotoTag', 'Vd_to_Controller', ...
         'IconDisplay', 'Tag', ...
-        'Position', [controller_x, main_y-40, controller_x+50, main_y-20]);
+        'Position', [controller_x, main_y-10, controller_x+60, main_y+10]);
 
     % From block: Vm
     add_block('simulink/Signal Routing/From', [model_name '/From_Vm']);
     set_param([model_name '/From_Vm'], ...
         'GotoTag', 'Vm_to_Controller', ...
         'IconDisplay', 'Tag', ...
-        'Position', [controller_x, main_y+20, controller_x+50, main_y+40]);
+        'Position', [controller_x, main_y+50, controller_x+60, main_y+70]);
 
     % Terminator blocks (暫時終止訊號，等待控制器替換)
     add_block('simulink/Sinks/Terminator', [model_name '/Term_Vd']);
     set_param([model_name '/Term_Vd'], ...
-        'Position', [controller_x+70, main_y-40, controller_x+90, main_y-20]);
+        'Position', [controller_x+80, main_y-10, controller_x+100, main_y+10]);
     add_line(model_name, 'From_Vd/1', 'Term_Vd/1', 'autorouting', 'on');
 
     add_block('simulink/Sinks/Terminator', [model_name '/Term_Vm']);
     set_param([model_name '/Term_Vm'], ...
-        'Position', [controller_x+70, main_y+20, controller_x+90, main_y+40]);
+        'Position', [controller_x+80, main_y+50, controller_x+100, main_y+70]);
     add_line(model_name, 'From_Vm/1', 'Term_Vm/1', 'autorouting', 'on');
 
     %% ========================================
@@ -157,17 +163,16 @@ function generate_simulink_framework()
     add_block('simulink/Signal Routing/Demux', [model_name '/Demux_u']);
     set_param([model_name '/Demux_u'], ...
         'Outputs', '6', ...
-        'Position', [dac_x-100, main_y-60, dac_x-90, main_y+300]);
+        'Position', [dac_x-30, 110, dac_x-20, 470]);
 
     add_line(model_name, 'u_in/1', 'Demux_u/1', 'autorouting', 'on');
 
     % 建立 6 個 DAC
-    row_spacing = 60;
     for i = 1:6
         block_name = sprintf('%s/DAC_%d', model_name, i);
         add_block('simulink/Discrete/Zero-Order Hold', block_name);
 
-        y_pos = main_y - 60 + (i-1)*row_spacing;
+        y_pos = 130 + (i-1)*row_spacing;
         set_param(block_name, ...
             'SampleTime', num2str(Ts), ...
             'Position', [dac_x, y_pos-10, dac_x+50, y_pos+10]);
@@ -179,7 +184,7 @@ function generate_simulink_framework()
     add_block('simulink/Signal Routing/Mux', [model_name '/Mux_DAC']);
     set_param([model_name '/Mux_DAC'], ...
         'Inputs', '6', ...
-        'Position', [dac_x+100, main_y-60, dac_x+110, main_y+300]);
+        'Position', [dac_x+75, 110, dac_x+85, 470]);
 
     for i = 1:6
         add_line(model_name, sprintf('DAC_%d/1', i), sprintf('Mux_DAC/%d', i), 'autorouting', 'on');
@@ -194,7 +199,7 @@ function generate_simulink_framework()
     plant_subsys = [model_name '/Plant_Subsystem'];
     add_block('built-in/Subsystem', plant_subsys);
     set_param(plant_subsys, ...
-        'Position', [plant_x, main_y-60, plant_x+150, main_y+300]);
+        'Position', [plant_x, 110, plant_x+150, 470]);
 
     % 刪除預設埠（安全刪除）
     try
@@ -231,7 +236,7 @@ function generate_simulink_framework()
     add_block('simulink/Signal Routing/Demux', [model_name '/Demux_Plant']);
     set_param([model_name '/Demux_Plant'], ...
         'Outputs', '6', ...
-        'Position', [adc_x-100, main_y-60, adc_x-90, main_y+300]);
+        'Position', [adc_x-115, 110, adc_x-105, 470]);
 
     add_line(model_name, 'Plant_Subsystem/1', 'Demux_Plant/1', 'autorouting', 'on');
 
@@ -240,7 +245,7 @@ function generate_simulink_framework()
         block_name = sprintf('%s/ADC_%d', model_name, i);
         add_block('simulink/Discrete/Zero-Order Hold', block_name);
 
-        y_pos = main_y - 60 + (i-1)*row_spacing;
+        y_pos = 130 + (i-1)*row_spacing;
         set_param(block_name, ...
             'SampleTime', num2str(Ts), ...
             'Position', [adc_x, y_pos-10, adc_x+50, y_pos+10]);
@@ -252,7 +257,7 @@ function generate_simulink_framework()
     add_block('simulink/Signal Routing/Mux', [model_name '/Mux_Vm']);
     set_param([model_name '/Mux_Vm'], ...
         'Inputs', '6', ...
-        'Position', [vm_x-100, main_y-60, vm_x-90, main_y+300]);
+        'Position', [vm_x-90, 110, vm_x-80, 470]);
 
     for i = 1:6
         add_line(model_name, sprintf('ADC_%d/1', i), sprintf('Mux_Vm/%d', i), 'autorouting', 'on');
@@ -267,7 +272,7 @@ function generate_simulink_framework()
     % 輸出埠：Vm (測量電壓，6×1)
     add_block('simulink/Sinks/Out1', [model_name '/Vm']);
     set_param([model_name '/Vm'], ...
-        'Position', [vm_x, main_y-10, vm_x+30, main_y+10]);
+        'Position', [vm_x, 160-10, vm_x+30, 160+10]);
 
     add_line(model_name, 'Mux_Vm/1', 'Vm/1', 'autorouting', 'on');
 
@@ -276,7 +281,7 @@ function generate_simulink_framework()
     set_param([model_name '/Goto_Vm'], ...
         'GotoTag', 'Vm_to_Controller', ...
         'TagVisibility', 'local', ...
-        'Position', [goto_vm_x, main_y-15, goto_vm_x+40, main_y+15]);
+        'Position', [goto_vm_x, 220, goto_vm_x+50, 240]);
 
     add_line(model_name, 'Mux_Vm/1', 'Goto_Vm/1', 'autorouting', 'on');
 
@@ -289,32 +294,32 @@ function generate_simulink_framework()
     % 監測訊號 1: u (控制訊號)
     add_block('simulink/Sinks/Scope', [model_name '/Scope_u']);
     set_param([model_name '/Scope_u'], ...
-        'Position', [u_in_x+50, monitor_y, u_in_x+100, monitor_y+40]);
+        'Position', [885, 355, 935, 395]);
     add_line(model_name, 'u_in/1', 'Scope_u/1', 'autorouting', 'on');
 
     add_block('simulink/Sinks/To Workspace', [model_name '/u_log']);
     set_param([model_name '/u_log'], ...
         'VariableName', 'u', ...
-        'Position', [u_in_x+50, monitor_y+60, u_in_x+100, monitor_y+90]);
+        'Position', [885, 305, 935, 335]);
     add_line(model_name, 'u_in/1', 'u_log/1', 'autorouting', 'on');
 
     % 監測訊號 2: Vm (輸出)
     add_block('simulink/Sinks/Scope', [model_name '/Scope_Vm']);
     set_param([model_name '/Scope_Vm'], ...
-        'Position', [vm_x+50, monitor_y, vm_x+100, monitor_y+40]);
+        'Position', [1570, 270, 1620, 310]);
     add_line(model_name, 'Mux_Vm/1', 'Scope_Vm/1', 'autorouting', 'on');
 
     add_block('simulink/Sinks/To Workspace', [model_name '/Vm_log']);
     set_param([model_name '/Vm_log'], ...
         'VariableName', 'Vm', ...
-        'Position', [vm_x+50, monitor_y+60, vm_x+100, monitor_y+90]);
+        'Position', [1570, 330, 1620, 360]);
     add_line(model_name, 'Mux_Vm/1', 'Vm_log/1', 'autorouting', 'on');
 
     % 監測訊號 3: Vm_analog (類比輸出，從 Plant 直接取)
     add_block('simulink/Signal Routing/Mux', [model_name '/Mux_Vm_analog']);
     set_param([model_name '/Mux_Vm_analog'], ...
         'Inputs', '6', ...
-        'Position', [plant_x+200, monitor_y+120, plant_x+210, monitor_y+380]);
+        'Position', [1455, 479, 1465, 591]);
 
     for i = 1:6
         add_line(model_name, sprintf('Demux_Plant/%d', i), sprintf('Mux_Vm_analog/%d', i), 'autorouting', 'on');
@@ -323,7 +328,7 @@ function generate_simulink_framework()
     add_block('simulink/Sinks/To Workspace', [model_name '/Vm_analog_log']);
     set_param([model_name '/Vm_analog_log'], ...
         'VariableName', 'Vm_analog', ...
-        'Position', [plant_x+250, monitor_y+230, plant_x+300, monitor_y+270]);
+        'Position', [1500, 515, 1565, 555]);
     add_line(model_name, 'Mux_Vm_analog/1', 'Vm_analog_log/1', 'autorouting', 'on');
 
     %% ========================================
@@ -332,7 +337,8 @@ function generate_simulink_framework()
 
     % 主標註
     annotation_text = sprintf(['Control System Framework (Controller Interface v2)\n' ...
-                               'Modified: 2025-10-09\n\n' ...
+                               'Modified: 2025-10-09\n' ...
+                               'Updated: 2025-10-12\n\n' ...
                                '=== SIGNAL FLOW ===\n' ...
                                'Vd (6×1) → [Goto_Vd] → [From_Vd] → [CONTROLLER] → u_in → [DAC] → [Plant] → [ADC] → Vm (6×1) → [Goto_Vm] → [From_Vm]\n' ...
                                '                                         ↑                                                             │\n' ...
