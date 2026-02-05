@@ -45,7 +45,7 @@ use_csv = true;
 
 % --- Fitting Parameters ---
 p_weight = 0.5;              % Weighting exponent
-wc_Hz =  50;                 % Cutoff frequency [Hz]
+wc_Hz = 1;                 % Cutoff frequency [Hz]
 
 % --- Plot Configuration (Model_6_6 style) ---
 PLOT_FIGURE = true;          % Generate Bode plot
@@ -259,38 +259,52 @@ if PLOT_FIGURE
     s_smooth = 1j * 2 * pi * freq_smooth;
     H_model_smooth = b ./ (s_smooth.^2 + a1*s_smooth + a2);
 
-    % --- Normalize by DC gain ---
-    H_model_norm = H_model_smooth / dc_gain;
-    h_k_norm = magnitudes_linear / dc_gain;
-    h_db_norm = 20*log10(h_k_norm);
+    % --- Normalization references ---
+    % For Tab 1 (Model + Measured): use fitted DC gain for comparison
+    % For Tab 2 (Measured Only): use measured H(0.1 Hz) as reference
+    [~, min_freq_idx] = min(frequencies);
+    H_ref_measured = magnitudes_linear(min_freq_idx);  % H(0.1 Hz) measured value
+    freq_ref = frequencies(min_freq_idx);               % Reference frequency (0.1 Hz)
+
+    % Tab 1: Normalize by fitted DC gain (for model-data comparison)
+    H_model_norm_tab1 = H_model_smooth / dc_gain;
+    h_k_norm_tab1 = magnitudes_linear / dc_gain;
+    h_db_norm_tab1 = 20*log10(h_k_norm_tab1);
+
+    % Tab 2: Normalize by measured H(0.1 Hz) (pure experimental data)
+    h_k_norm_tab2 = magnitudes_linear / H_ref_measured;
+    h_db_norm_tab2 = 20*log10(h_k_norm_tab2);
 
     % --- Model_6_6 plot settings ---
-    log_ticks = 10.^((0:ceil(log10(freq_max))));
+    log_ticks = 10.^((-1:ceil(log10(freq_max))));
     font_props = {'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2};
     axis_props = {'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks};
 
-    % --- Create figure ---
+    % --- Create tabbed figure ---
     fig = figure('Name', 'Bode Plot', 'Position', figure_size);
+    tabgp = uitabgroup(fig);
+
+    % ===================== Tab 1: Model + Measured =====================
+    tab1 = uitab(tabgp, 'Title', 'Model + Measured');
 
     % === Magnitude Plot ===
-    subplot(2, 1, 1);
+    subplot(2, 1, 1, 'Parent', tab1);
     hold on;
 
     % Model curve: black thick line
-    semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
+    semilogx(freq_smooth, 20*log10(abs(H_model_norm_tab1)), 'k-', 'LineWidth', 3, ...
         'DisplayName', 'Model');
 
-    % Measured data: blue open circles
-    semilogx(frequencies, h_db_norm, 'o-b', 'LineWidth', 3.5, 'MarkerSize', 12, ...
+    % Measured data: blue open circles (normalized by fitted DC gain)
+    semilogx(frequencies, h_db_norm_tab1, 'o-b', 'LineWidth', 3.5, 'MarkerSize', 12, ...
         'MarkerFaceColor', 'none', ...
         'DisplayName', sprintf('Measured (H(0)=%.4f)', dc_gain));
 
-    xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
     ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
     legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
 
     set(gca, axis_props{:}, font_props{:});
-    y_min = min(real(h_db_norm)) - 5;  % 確保是實數
+    y_min = min(real(h_db_norm_tab1)) - 5;  % 確保是實數
     ylim([y_min, 5]);
 
     ax = gca;
@@ -299,7 +313,7 @@ if PLOT_FIGURE
     box on;
 
     % === Phase Plot ===
-    subplot(2, 1, 2);
+    subplot(2, 1, 2, 'Parent', tab1);
     hold on;
 
     % Measured phase: blue open circles
@@ -314,7 +328,7 @@ if PLOT_FIGURE
     ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
 
     set(gca, axis_props{:}, font_props{:});
-    ylim([-180, 5]);
+    ylim([-180, 0]);
 
     ax = gca;
     ax.XAxis.LineWidth = 3;
@@ -322,18 +336,74 @@ if PLOT_FIGURE
     box on;
 
     % === Title ===
-    sgtitle(sprintf('H_{22}(s), p=%.1f, ωc=%.0f Hz', p_weight, wc_Hz), ...
+    sgtitle(sprintf('H(s), p=%.1f, \\omega_c=%.1f Hz', p_weight, wc_Hz), ...
         'FontWeight', 'bold', 'FontSize', 24);
 
     fprintf('  Bode plot generated.\n');
 
     if SAVE_FIGURE
         output_file = fullfile(project_root, 'results', 'figures', 'Bode_Hung_Model66_style.png');
-        saveas(fig, output_file);
+        exportgraphics(tab1, output_file, 'Resolution', 150);
         fprintf('  Figure saved: %s\n', output_file);
     end
 
     fprintf('\nStage 3 complete.\n\n');
+
+    % ===================== Tab 2: Measured Data Only =====================
+    fprintf('Stage 4: Generating data-only Bode plot...\n');
+
+    tab2 = uitab(tabgp, 'Title', 'Measured Data Only');
+
+    % === Magnitude Plot ===
+    subplot(2, 1, 1, 'Parent', tab2);
+    hold on;
+
+    % Measured data only (normalized by measured H(0.1 Hz))
+    semilogx(frequencies, h_db_norm_tab2, 'o-b', 'LineWidth', 3.5, 'MarkerSize', 12, ...
+        'MarkerFaceColor', 'none', ...
+        'DisplayName', sprintf('Measured (H(%.1f Hz)=%.4f)', freq_ref, H_ref_measured));
+
+    ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
+    legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
+
+    set(gca, axis_props{:}, font_props{:});
+    y_min2 = min(real(h_db_norm_tab2)) - 5;
+    ylim([y_min2, 5]);
+
+    ax = gca;
+    ax.XAxis.LineWidth = 3;
+    ax.YAxis.LineWidth = 3;
+    box on;
+
+    % === Phase Plot ===
+    subplot(2, 1, 2, 'Parent', tab2);
+    hold on;
+
+    semilogx(frequencies, phases_normalized, 'o-b', 'LineWidth', 3.5, ...
+        'MarkerSize', 12, 'MarkerFaceColor', 'none');
+
+    xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
+    ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
+
+    set(gca, axis_props{:}, font_props{:});
+    ylim([-180, 0]);
+
+    ax = gca;
+    ax.XAxis.LineWidth = 3;
+    ax.YAxis.LineWidth = 3;
+    box on;
+
+    % Save Tab 2 as separate image
+    fig_dir = fullfile(project_root, 'results', 'figures');
+    if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
+    tabgp.SelectedTab = tab2;
+    drawnow;
+    output_file2 = fullfile(fig_dir, 'Bode_Hung_DataOnly.png');
+    exportgraphics(tab2, output_file2, 'Resolution', 150);
+    fprintf('  Data-only Bode plot saved: %s\n', output_file2);
+    tabgp.SelectedTab = tab1;
+
+    fprintf('\nStage 4 complete.\n\n');
 end
 
 %% ========================================================================
