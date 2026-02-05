@@ -1,0 +1,13 @@
+# Claude Code
+.claude/
+
+# Large raw data files (412 MB for NTU, similar for Hung)
+*.dat
+**/*.dat
+
+# MATLAB temporary files
+*.asv
+*.m~
+
+# Temporary comparison plots
+Comparison_Hung_NTU_Scaled_*.png
