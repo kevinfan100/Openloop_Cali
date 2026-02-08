@@ -117,7 +117,7 @@ function step_plot(config, fit_results, varargin)
         if save_fig
             fig_folder = fullfile(config.output_folder, 'figures');
             if ~exist(fig_folder, 'dir'), mkdir(fig_folder); end
-            out_file = fullfile(fig_folder, sprintf('Bode_%s_Model66_style.png', config.experiment_name));
+            out_file = fullfile(fig_folder, sprintf('Bode_%s_Fitted.png', config.experiment_name));
             exportgraphics(tab1, out_file, 'Resolution', 150);
             if verbose, fprintf('Saved: %s\n', out_file); end
         end
