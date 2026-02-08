@@ -20,8 +20,8 @@ pipeline/
   step_steady_state.m   ← 穩態檢測 (conservative，低頻有 fallback)
   step_fft.m            ← FFT + THD + CSV 輸出
   step_fit.m            ← Phase offset removal + fitting (single-curve)
-  step_plot.m           ← Bode 圖生成 (Model+Data / Data Only 雙 tab)
-  step_compare.m        ← 多實驗比較 (固定順序 Hung→NoRing→NTU)
+  step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
+  step_compare.m        ← 多實驗比較: Bode / VM Spectrum / Lissajous (固定順序 Hung→NoRing→NTU)
 functions/              ← 核心演算法 (保留不動)
   read_hsdata.m         ← binary reader (V1~V8 格式)
   detect_steady_state.m, detect_steady_state_relative.m
@@ -37,30 +37,35 @@ results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
   Hung_noring/
   NTU/
-  Comparison_Bode.png         ← 三實驗比較圖
+  Comparison_Bode.png         ← Bode 比較圖
+  Comparison_VM_Spectrum.png  ← VM 頻譜比較圖
+  Comparison_Lissajous.png    ← Lissajous 比較圖
 legacy/                       ← 舊腳本 (diagnose_*.m, fit_*.m 等)
 ```
 
 ## 使用方式
 
 ```matlab
-run_analysis('Hung', 'all');                           % 完整 pipeline: read→steady→fft→fit→plot
+run_analysis('Hung', 'all');                           % 完整 pipeline: read→steady→fft→fit→plot+dashboard
 run_analysis('Hung', 'fft');                           % read→steady→fft (只產 CSV)
 run_analysis('Hung', 'fit');                           % 從 CSV fitting (不需重新讀 .dat)
 run_analysis('Hung', 'fit', 'wc_Hz', 1);               % 覆寫 fitting 參數
 run_analysis('Hung', 'plot');                          % 從 fit_results.mat 或 CSV 畫圖
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare');  % 三實驗比較圖
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare');                                       % Bode 比較 (預設)
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % VM 頻譜比較
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
 ```
 
 ### Pipeline 各步驟 (step) 說明
 | Step | 輸入 | 輸出 | 說明 |
 |------|------|------|------|
-| `'all'` | .dat files | CSV + .mat + PNG | 完整流程 |
+| `'all'` | .dat files | CSV + .mat + PNG + Dashboard | 完整流程 |
 | `'read'` | .dat files | struct array | 只讀取驗證 |
 | `'fft'` | .dat files | Raw_Bode_Data.csv | 讀取→穩態→FFT |
-| `'fit'` | CSV | fit_results.mat + PNG | 從 CSV fitting + 畫圖 |
-| `'plot'` | .mat 或 CSV | PNG | 只畫圖 |
-| `'compare'` | 多個 CSV | Comparison_Bode.png | 多實驗比較 |
+| `'fit'` | CSV | fit_results.mat + Fitted/Residuals/DataOnly PNG + Dashboard | 從 CSV fitting + 畫圖 |
+| `'plot'` | .mat 或 CSV | Fitted/Residuals/DataOnly PNG + Dashboard | 只畫圖 |
+| `'compare'` | CSV 或 .dat | Comparison_*.png | 多實驗比較 (Type: bode/spectrum/lissajous/all) |
 
 ---
 
@@ -202,10 +207,17 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 10. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
 11. **每輪討論或更動後必須更新 CLAUDE.md** — 對專案架構、規則、參數、注意事項的任何新理解或變更，都要反映到 CLAUDE.md 中。CLAUDE.md 是專案的 single source of truth，必須始終保持最新。
 
+### 已整合進 Pipeline 的功能
+12. **VM 頻譜比較** — 已整合為 `step_compare` 的 `'Type','spectrum'` 模式（原 `legacy/plot_vm_spectrum.m`）
+13. **Lissajous / VM vs Current** — 已整合為 `step_compare` 的 `'Type','lissajous'` 模式（原 `legacy/plot_vm_vs_current.m`）
+14. **Fitting Residuals** — 已整合為 `step_plot` Tab 3
+15. **Dashboard 總覽** — 已整合為 `step_plot` 的 `generate_dashboard()` local function
+
 ### 尚未整合進 Pipeline 的功能
-12. **VM 頻譜比較**（原 `plot_vm_spectrum.m`）— 目前在 `legacy/`，未來可整合為 `step_compare` 的子功能
-13. **Lissajous / VM vs Current**（原 `plot_vm_vs_current.m`）— 同上
-14. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 保留在根目錄，未來可整合為 `step_fit` 的 MIMO 模式
+16. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 保留在根目錄，未來可整合為 `step_fit` 的 MIMO 模式
+17. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
+18. **ZOH 離散化 Pipeline 整合** — 等 MIMO 完成後一起做
+19. **共享假設檢驗 (CV)** — 等 MIMO 完成後一起做
 
 ---
 
@@ -255,7 +267,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | VM Spectrum | [1200,1200] | 3×1 | loglog | on | top horizontal |
 | Lissajous | [1800,600] | 1×3 | linear | on | top horizontal |
 | Dashboard | [1600,900] | 2×2 | mixed | on | per-subplot |
-| Fitting Residuals | [900,720] | 2×1 | semilogx | on | - |
+| Fitting Residuals | [900,720] | 2×1 | semilogx | on | best, RMSE in legend |
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
 ### 3.5 子圖規則
@@ -268,17 +280,18 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 
 ## 分析清單
 
-| ID | 分析 | 觸發 | 來源 |
-|----|------|------|------|
-| A1 | Raw Bode | 固定 | CSV |
-| A2 | Normalized Comparison | 按需 | 多實驗 |
-| A3 | THD vs Freq | 固定 | Dashboard |
-| A4 | DC Gain 比較 | Console | - |
-| B1 | VM Spectrum | 可選 | 指定頻率 |
-| B2 | VM Time-Domain | 可選 | 診斷 |
-| B3 | VM P-P vs Freq | 建議固定 | SNR 判斷 |
-| C1 | Lissajous | 可選 | 指定頻率 |
-| D1/D2 | Cross-channel | 未來 | 多通道 |
+| ID | 分析 | 觸發 | 來源 | 狀態 |
+|----|------|------|------|------|
+| A1 | Raw Bode (DataOnly) | 固定 | CSV → `Bode_{name}_DataOnly.png` | ✅ step_plot |
+| A2 | Model+Data Bode | 固定 | fit_results → `Bode_{name}_Fitted.png` | ✅ step_plot Tab 1 |
+| A3 | Fitting Residuals | 固定 | fit_results → `Bode_{name}_Residuals.png` | ✅ step_plot Tab 3 |
+| A4 | Dashboard | 固定 | CSV + fit_results → `Dashboard_{name}.png` | ✅ step_plot |
+| A5 | Normalized Comparison | 按需 | 多實驗 CSV → `Comparison_Bode.png` | ✅ step_compare (bode) |
+| B1 | VM Spectrum | 可選 | .dat → `Comparison_VM_Spectrum.png` | ✅ step_compare (spectrum) |
+| B2 | VM Time-Domain | 可選 | 診斷 | 未實作 |
+| B3 | VM P-P vs Freq | 建議固定 | SNR 判斷 | 未實作 |
+| C1 | Lissajous | 可選 | .dat → `Comparison_Lissajous.png` | ✅ step_compare (lissajous) |
+| D1/D2 | Cross-channel | 未來 | 多通道 | 未實作 |
 
 ---
 
@@ -340,6 +353,18 @@ frequencies = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
 1. **三組實驗各 19/19 檔案成功讀取**
 2. **CSV Magnitude/Phase 與舊 pipeline 完全一致**（diff = 0）
 3. **THD 略有不同**（因穩態窗口選擇不同，無害）
-4. **compare 模式正常運作** — Comparison_Bode.png 正確生成
+4. **compare 模式正常運作** — Bode / Spectrum / Lissajous 三種比較圖皆正確生成
 5. **參數覆寫正常** — `run_analysis('Hung', 'fit', 'wc_Hz', 1)` 正確執行
 6. **所有新檔案通過 `checkcode`** — 零警告
+7. **step_plot 新功能** — Fitting Residuals (Tab 3) + Dashboard 正確生成
+8. **step_compare 新模式** — `'Type','spectrum'` 和 `'Type','lissajous'` 正確讀取 .dat 並生成圖表
+
+### 完整驗證指令
+```matlab
+run_analysis('Hung', 'all');
+run_analysis('Hung_noring', 'all');
+run_analysis('NTU', 'all');
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare');
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
+```
