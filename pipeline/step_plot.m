@@ -122,6 +122,52 @@ function step_plot(config, fit_results, varargin)
             if verbose, fprintf('Saved: %s\n', out_file); end
         end
 
+        %% ===== Tab 3: Fitting Residuals =====
+        tab3 = uitab(tabgp, 'Title', 'Fitting Residuals');
+
+        mag_fitted = abs(fit_results.H_fitted);
+        phase_fitted = angle(fit_results.H_fitted) * 180 / pi;
+        mag_residual = magnitudes_linear - mag_fitted;
+        phase_residual = phases_normalized - phase_fitted;
+
+        % Magnitude residual
+        subplot(2, 1, 1, 'Parent', tab3);
+        hold on;
+        semilogx(frequencies, mag_residual, 'o-b', 'LineWidth', lw, 'MarkerSize', ms, ...
+            'MarkerFaceColor', 'none', ...
+            'DisplayName', sprintf('RMSE = %.4e', fit_results.RMSE_mag));
+        yline(0, 'k--', 'LineWidth', 1);
+        ylabel('Mag Residual (linear)', 'FontWeight', 'bold', 'FontSize', config.plot.font_size_label);
+        legend('Location', 'best', 'FontWeight', 'bold', 'FontSize', config.plot.font_size_legend);
+        set(gca, axis_props{:}, font_props{:});
+        grid on;
+        ax = gca; ax.XAxis.LineWidth = config.plot.axis_line_width; ax.YAxis.LineWidth = config.plot.axis_line_width;
+        box on;
+
+        % Phase residual
+        subplot(2, 1, 2, 'Parent', tab3);
+        hold on;
+        semilogx(frequencies, phase_residual, 'o-b', 'LineWidth', lw, 'MarkerSize', ms, ...
+            'MarkerFaceColor', 'none', ...
+            'DisplayName', sprintf('RMSE = %.2f deg', fit_results.RMSE_phase));
+        yline(0, 'k--', 'LineWidth', 1);
+        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', config.plot.font_size_label);
+        ylabel('Phase Residual (deg)', 'FontWeight', 'bold', 'FontSize', config.plot.font_size_label);
+        legend('Location', 'best', 'FontWeight', 'bold', 'FontSize', config.plot.font_size_legend);
+        set(gca, axis_props{:}, font_props{:});
+        grid on;
+        ax = gca; ax.XAxis.LineWidth = config.plot.axis_line_width; ax.YAxis.LineWidth = config.plot.axis_line_width;
+        box on;
+
+        sgtitle(sprintf('Fitting Residuals — %s (R^2=%.4f)', config.experiment_name, fit_results.R_squared), ...
+            'FontWeight', 'bold', 'FontSize', config.plot.font_size_title);
+
+        if save_fig
+            out_file = fullfile(fig_folder, sprintf('Bode_%s_Residuals.png', config.experiment_name));
+            exportgraphics(tab3, out_file, 'Resolution', 150);
+            if verbose, fprintf('Saved: %s\n', out_file); end
+        end
+
         %% ===== Tab 2: Data Only =====
         tab2 = uitab(tabgp, 'Title', 'Measured Data Only');
     else
