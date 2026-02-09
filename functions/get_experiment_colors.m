@@ -22,4 +22,12 @@ function colors = get_experiment_colors()
     colors.NTU.rgb = [1, 0, 0];
     colors.NTU.marker = 's';
     colors.NTU.display_name = 'NTU';
+
+    colors.NTU_t.rgb = [0, 0, 1];
+    colors.NTU_t.marker = 'o';
+    colors.NTU_t.display_name = 'V_{tip}';
+
+    colors.NTU_s.rgb = [1, 0, 0];
+    colors.NTU_s.marker = 's';
+    colors.NTU_s.display_name = 'V_{surface}';
 end

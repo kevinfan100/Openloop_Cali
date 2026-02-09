@@ -14,6 +14,8 @@ configs/
   Hung_config.m         ← 只寫差異 (~15 行覆寫)
   Hung_noring_config.m
   NTU_config.m
+  NTU_t_config.m        ← NTU tip sensor (DA ch2 → VM ch3)
+  NTU_s_config.m        ← NTU surface sensor (DA ch2 → VM ch2)
   config_template.m     ← 新實驗 template (有註解說明)
 pipeline/
   step_read.m           ← 讀取 .dat + DAC 轉換 + L1 sanity check
@@ -21,7 +23,7 @@ pipeline/
   step_fft.m            ← FFT + THD + CSV 輸出
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
-  step_compare.m        ← 多實驗比較: Bode / VM Spectrum / Lissajous (固定順序 Hung→NoRing→NTU)
+  step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoRing→NTU→NTU_t→NTU_s)
 functions/              ← 核心演算法 (保留不動)
   read_hsdata.m         ← binary reader (V1~V8 格式)
   detect_steady_state.m, detect_steady_state_relative.m
@@ -33,13 +35,23 @@ data/
   Hung/single_raw_data/       ← 19 個 .dat 檔
   Hung_noring/single_raw_data/
   NTU/single_raw_data/
+  NTU_ts/single_raw_data/     ← 19 個 .dat 檔 (tip+surface 雙通道)
 results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
   Hung_noring/
   NTU/
-  Comparison_Bode.png         ← Bode 比較圖
-  Comparison_VM_Spectrum.png  ← VM 頻譜比較圖
-  Comparison_Lissajous.png    ← Lissajous 比較圖
+  NTU_t/                      ← tip sensor 結果
+  NTU_s/                      ← surface sensor 結果
+  Comparison_Bode.png                  ← Bode 比較圖 (正規化, legend 含 H(0.1))
+  Comparison_Bode_TS.png               ← NTU_t/NTU_s 正規化 Bode (自動偵測 TS pair)
+  Comparison_Bode_dB.png               ← Bode 比較圖 (原始 dB)
+  Comparison_Bode_Linear.png           ← Bode 比較圖 (原始 linear)
+  Comparison_VM_Spectrum.png           ← VM 頻譜比較圖
+  Comparison_Lissajous.png             ← Lissajous 比較圖
+  Comparison_Ratio.png                 ← 通道比值比較圖
+  Comparison_CrossChannel.png          ← 跨通道時域散射圖
+  Comparison_TS_Lissajous_{freqs}.png  ← TS VM/I 疊圖 (tip+surface per freq)
+  Comparison_TS_TimeDomain_{freqs}.png ← TS 時域疊圖 (tip+surface per freq)
 legacy/                       ← 舊腳本 (diagnose_*.m, fit_*.m 等)
 ```
 
@@ -55,6 +67,17 @@ run_analysis({'Hung','Hung_noring','NTU'}, 'compare');                          
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % VM 頻譜比較
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
+
+% NTU_ts 雙通道分析 (tip vs surface)
+run_analysis('NTU_t', 'fft');                                                                         % tip sensor (VM ch3)
+run_analysis('NTU_s', 'fft');                                                                         % surface sensor (VM ch2)
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', false);                                     % Bode dB 疊圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', false, 'Scale', 'linear');                   % Bode linear 疊圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ratio');                                        % 比值圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'cross_channel', 'Frequencies', [500,1000,2000]); % 跨通道散射
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);   % TS VM/I 疊圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_timedomain', 'Frequencies', [10,100,1000]);  % TS 時域疊圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', true);                                      % TS 正規化 Bode → _TS.png
 ```
 
 ### Pipeline 各步驟 (step) 說明
@@ -65,7 +88,7 @@ run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'all', 'Frequencie
 | `'fft'` | .dat files | Raw_Bode_Data.csv | 讀取→穩態→FFT |
 | `'fit'` | CSV | fit_results.mat + Fitted/Residuals/DataOnly PNG + Dashboard | 從 CSV fitting + 畫圖 |
 | `'plot'` | .mat 或 CSV | Fitted/Residuals/DataOnly PNG + Dashboard | 只畫圖 |
-| `'compare'` | CSV 或 .dat | Comparison_*.png | 多實驗比較 (Type: bode/spectrum/lissajous/all) |
+| `'compare'` | CSV 或 .dat | Comparison_*.png | 多實驗比較 (Type: bode/spectrum/lissajous/ratio/cross_channel/ts_lissajous/ts_timedomain/all) |
 
 ---
 
@@ -202,22 +225,27 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 7. **`exportgraphics` 可能顯示 "axes toolbar" 警告** — 純外觀問題，不是錯誤
 8. **`pbaspect([1 1 1])` 會壓縮 subplot 面積** — 標題可能被截斷
 9. **不要在每個 subplot 各放 legend** — 會擋住標題；改用共用水平 legend 放圖頂
+10. **`subplot()` 呼叫會重建 axes** — 手動調整 Position 後再呼叫 `subplot(1,n,k)` 會銷毀已繪製內容；改用 `ax_handles = gobjects(1,n)` 存 handle，之後用 handle 操作
+11. **Legend 手動定位流程** — 必須先 `drawnow`，再讀取 `lgd.Position` 取得實際寬高，再計算置中位置 `[0.5-w/2, y, w, h]`
+12. **正規化 Bode 的 DisplayName 格式** — `sprintf('%s (H(0.1)=%.4f)', display_name, H_ref)`，legend 放 southwest
 
 ### Git / 工作流程規則
-10. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
-11. **每輪討論或更動後必須更新 CLAUDE.md** — 對專案架構、規則、參數、注意事項的任何新理解或變更，都要反映到 CLAUDE.md 中。CLAUDE.md 是專案的 single source of truth，必須始終保持最新。
+13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
+14. **每輪討論或更動後必須更新 CLAUDE.md** — 對專案架構、規則、參數、注意事項的任何新理解或變更，都要反映到 CLAUDE.md 中。CLAUDE.md 是專案的 single source of truth，必須始終保持最新。
 
 ### 已整合進 Pipeline 的功能
-12. **VM 頻譜比較** — 已整合為 `step_compare` 的 `'Type','spectrum'` 模式（原 `legacy/plot_vm_spectrum.m`）
-13. **Lissajous / VM vs Current** — 已整合為 `step_compare` 的 `'Type','lissajous'` 模式（原 `legacy/plot_vm_vs_current.m`）
-14. **Fitting Residuals** — 已整合為 `step_plot` Tab 3
-15. **Dashboard 總覽** — 已整合為 `step_plot` 的 `generate_dashboard()` local function
+15. **VM 頻譜比較** — 已整合為 `step_compare` 的 `'Type','spectrum'` 模式（原 `legacy/plot_vm_spectrum.m`）
+16. **Lissajous / VM vs Current** — 已整合為 `step_compare` 的 `'Type','lissajous'` 模式（原 `legacy/plot_vm_vs_current.m`）
+17. **Fitting Residuals** — 已整合為 `step_plot` Tab 3
+18. **Dashboard 總覽** — 已整合為 `step_plot` 的 `generate_dashboard()` local function
+19. **TS Lissajous (VM/I)** — 已整合為 `step_compare` 的 `'Type','ts_lissajous'` 模式（tip+surface VM/I 疊圖）
+20. **TS TimeDomain** — 已整合為 `step_compare` 的 `'Type','ts_timedomain'` 模式（tip+surface 時域疊圖）
 
 ### 尚未整合進 Pipeline 的功能
-16. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 保留在根目錄，未來可整合為 `step_fit` 的 MIMO 模式
-17. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
-18. **ZOH 離散化 Pipeline 整合** — 等 MIMO 完成後一起做
-19. **共享假設檢驗 (CV)** — 等 MIMO 完成後一起做
+21. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 保留在根目錄，未來可整合為 `step_fit` 的 MIMO 模式
+22. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
+23. **ZOH 離散化 Pipeline 整合** — 等 MIMO 完成後一起做
+24. **共享假設檢驗 (CV)** — 等 MIMO 完成後一起做
 
 ---
 
@@ -242,14 +270,18 @@ MarkerFaceColor = 'none';
 
 ### 3.2 Legend 規則
 - 預設: 頂端水平有框 (`Box='on'`, `Orientation='horizontal'`)
-- 例外: Bode 圖用 `Location='southwest'`，只在 Magnitude subplot
+- 正規化 Bode: `Location='southwest'`，只在 Magnitude subplot，DisplayName 含 `H(0.1)=value`
+- 非正規化 Bode: `Location='northoutside'`，水平排列
+- TS Lissajous / TS TimeDomain: 手動定位 `[0.5-w/2, 0.92, w, h]`，放在圖頂中央
 
 ### 3.3 固定顏色方案
 ```matlab
-% 三組實驗
+% 五組實驗
 Hung    = [0,0,1]   blue  'o'
 NoRing  = [0,0.6,0] green 'd'
 NTU     = [1,0,0]   red   's'
+NTU_t   = [0,0,1]   blue  'o'   % V_{tip}
+NTU_s   = [1,0,0]   red   's'   % V_{surface}
 
 % 6×6 通道
 P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
@@ -268,10 +300,14 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | Lissajous | [1800,600] | 1×3 | linear | on | top horizontal |
 | Dashboard | [1600,900] | 2×2 | mixed | on | per-subplot |
 | Fitting Residuals | [900,720] | 2×1 | semilogx | on | best, RMSE in legend |
+| Ratio | [900,720] | 2×1 | semilogx | on | best |
+| Cross-Channel | [1800,600] | 1×N | linear | on | per-subplot axis labels |
+| TS Lissajous | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2 |
+| TS TimeDomain | [1800,700] | 1×N | linear | on | top center manual, LineWidth=2 |
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
 ### 3.5 子圖規則
-- **Subplot 順序 ALWAYS: Hung → Hung(NoRing) → NTU** (Hung 系列相鄰)
+- **Subplot 順序 ALWAYS: Hung → Hung(NoRing) → NTU → NTU_t → NTU_s** (Hung 系列相鄰)
 - **Legend 順序必須 match subplot 順序**
 - 多子圖: 共用水平 legend 放在圖頂
 - **xlabel 只放最底圖** — 上面的子圖不要重複
@@ -291,17 +327,23 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | B2 | VM Time-Domain | 可選 | 診斷 | 未實作 |
 | B3 | VM P-P vs Freq | 建議固定 | SNR 判斷 | 未實作 |
 | C1 | Lissajous | 可選 | .dat → `Comparison_Lissajous.png` | ✅ step_compare (lissajous) |
+| C2 | Ratio (通道比值) | 可選 | CSV → `Comparison_Ratio.png` | ✅ step_compare (ratio) |
+| C3 | Cross-Channel | 可選 | .dat → `Comparison_CrossChannel.png` | ✅ step_compare (cross_channel) |
+| C4 | TS Lissajous (VM/I) | 可選 | .dat → `Comparison_TS_Lissajous_{freqs}.png` | ✅ step_compare (ts_lissajous) |
+| C5 | TS TimeDomain | 可選 | .dat → `Comparison_TS_TimeDomain_{freqs}.png` | ✅ step_compare (ts_timedomain) |
 | D1/D2 | Cross-channel | 未來 | 多通道 | 未實作 |
 
 ---
 
 ## Config 規範
 
-### default_config.m — 所有共用參數 (~90 行)
+### default_config.m — 所有共用參數 (~92 行)
 ```matlab
 config = default_config();
 % 回傳完整的 config struct，包含所有預設值
 % 涵蓋: DAC、穩態、FFT、Fitting、Phase、Validation、Output、Plot style
+% config.analysis_channel = config.excitation_channel (預設向後相容)
+% 跨通道分析時覆寫 analysis_channel (如 NTU_t: ch3, NTU_s: ch2)
 ```
 
 ### <experiment>_config.m — 只寫差異 (~15 行)
@@ -341,6 +383,8 @@ k_A = 0.3614;               % A/V (channel 2 amplifier gain)
 H_ref.Hung         = 0.0591;   % H(0.1Hz) [V/V]
 H_ref.NTU          = 0.0914;
 H_ref.Hung_noring  = 0.0733;
+H_ref.NTU_t        = 0.2419;   % tip sensor (VM ch3)
+H_ref.NTU_s        = 0.0972;   % surface sensor (VM ch2)
 
 % Frequencies (19 points, 所有實驗共用)
 frequencies = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
@@ -358,6 +402,9 @@ frequencies = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
 6. **所有新檔案通過 `checkcode`** — 零警告
 7. **step_plot 新功能** — Fitting Residuals (Tab 3) + Dashboard 正確生成
 8. **step_compare 新模式** — `'Type','spectrum'` 和 `'Type','lissajous'` 正確讀取 .dat 並生成圖表
+9. **NTU_ts 雙通道** — NTU_t (tip, VM ch3) 和 NTU_s (surface, VM ch2) FFT + 比較圖皆正確生成
+10. **正規化 Bode TS** — NTU_t/NTU_s pair 自動存為 `Comparison_Bode_TS.png`，legend 含 H(0.1) 值
+11. **TS Lissajous + TS TimeDomain** — 新 compare type 正確生成 VM/I 疊圖和時域疊圖
 
 ### 完整驗證指令
 ```matlab
@@ -367,4 +414,15 @@ run_analysis('NTU', 'all');
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare');
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
+
+% NTU_ts 雙通道
+run_analysis('NTU_t', 'fft');
+run_analysis('NTU_s', 'fft');
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Normalize', false);
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Normalize', false, 'Scale', 'linear');
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ratio');
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'cross_channel', 'Frequencies', [500,1000,2000]);
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ts_timedomain', 'Frequencies', [10,100,1000]);
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Normalize', true);  % → Comparison_Bode_TS.png
 ```

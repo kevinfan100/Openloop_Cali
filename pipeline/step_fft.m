@@ -38,6 +38,7 @@ function bode_table = step_fft(config, ss_results, varargin)
         freq = ss_results(i).frequency;
         fs = ss_results(i).fs;
         excite_ch = ss_results(i).excite_ch;
+        analysis_ch = ss_results(i).analysis_ch;
 
         if verbose
             fprintf('[%d/%d] %.1f Hz ... ', i, length(ss_results), freq);
@@ -45,7 +46,7 @@ function bode_table = step_fft(config, ss_results, varargin)
 
         try
             %% Extract steady-state segments
-            vm_ch = ss_results(i).vm(:, excite_ch);
+            vm_ch = ss_results(i).vm(:, analysis_ch);
             da_ch = ss_results(i).da_volt(:, excite_ch);
             period_samples = ss_results(i).steady_info.period_samples;
             steady_start = ss_results(i).steady_info.index;

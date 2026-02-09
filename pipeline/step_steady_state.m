@@ -38,7 +38,6 @@ function results = step_steady_state(config, read_results, varargin)
 
         freq = results(i).frequency;
         fs = results(i).fs;
-        excite_ch = results(i).excite_ch;
 
         if verbose
             fprintf('[%d/%d] %.1f Hz ... ', i, length(results), freq);
@@ -48,8 +47,8 @@ function results = step_steady_state(config, read_results, varargin)
         period_samples = round(fs / freq);
         actual_check_pts = min(check_pts, period_samples);
 
-        %% Conservative: detect on excitation channel VM
-        vm_ch = results(i).vm(:, excite_ch);
+        %% Conservative: detect on analysis channel VM
+        vm_ch = results(i).vm(:, results(i).analysis_ch);
 
         try
             steady_info = detect_steady_state_relative(vm_ch, freq, fs, ...

@@ -20,6 +20,7 @@ function config = default_config()
 
     %% 數據參數
     config.excitation_channel = 2;
+    config.analysis_channel = config.excitation_channel;  % 預設 = excitation → 向後相容
     config.expected_sampling_rate = 20000;      % Hz (NOT 100kHz)
     config.expected_loop_mode = 1;              % Open-loop
     config.expected_amplitude = 2.0;            % V

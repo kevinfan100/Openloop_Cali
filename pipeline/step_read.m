@@ -34,7 +34,7 @@ function results = step_read(config, varargin)
 
     n_files = length(config.data_files);
     results = struct('frequency', {}, 'filename', {}, 'vm', {}, 'da_volt', {}, ...
-                     'fs', {}, 'excite_ch', {}, 'header', {}, 'success', {});
+                     'fs', {}, 'excite_ch', {}, 'analysis_ch', {}, 'header', {}, 'success', {});
 
     for i = 1:n_files
         filepath = fullfile(config.data_folder, config.data_files{i});
@@ -98,6 +98,7 @@ function results = step_read(config, varargin)
             r.da_volt = da_clean;
             r.fs = fs;
             r.excite_ch = data.channel;
+            r.analysis_ch = config.analysis_channel;
             r.header = rmfield(data, {'vm', 'vd', 'da', 'debug'});
             r.success = true;
             results(end+1) = r; %#ok<AGROW>
@@ -114,6 +115,7 @@ function results = step_read(config, varargin)
             r.da_volt = [];
             r.fs = 0;
             r.excite_ch = 0;
+            r.analysis_ch = 0;
             r.header = struct();
             r.success = false;
             results(end+1) = r; %#ok<AGROW>

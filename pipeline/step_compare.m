@@ -6,18 +6,27 @@ function step_compare(experiment_names, varargin)
 %   step_compare({'Hung', 'NTU'}, 'Type', 'bode')
 %   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'spectrum', 'Frequencies', [1, 10, 100])
 %   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'lissajous', 'Frequencies', [1, 10, 100])
+%   step_compare({'NTU_t', 'NTU_s'}, 'Normalize', false)
+%   step_compare({'NTU_t', 'NTU_s'}, 'Type', 'ratio')
+%   step_compare({'NTU_t', 'NTU_s'}, 'Type', 'cross_channel', 'Frequencies', [500, 1000, 2000])
 %   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'all', 'Frequencies', [1, 10, 100])
 %
 % Input:
 %   experiment_names - cell array of experiment names
 %
 % Type:
-%   'bode'      - Normalized Bode comparison (default)
-%   'spectrum'  - VM steady-state spectrum comparison
-%   'lissajous' - VM vs Current Lissajous comparison
-%   'all'       - All comparison types
+%   'bode'          - Bode comparison (default, normalized or raw)
+%   'spectrum'      - VM steady-state spectrum comparison
+%   'lissajous'     - VM vs Current Lissajous comparison
+%   'ratio'         - Magnitude ratio + Phase difference (2 experiments)
+%   'cross_channel' - Cross-channel time-domain scatter (2 experiments)
+%   'all'           - All comparison types
 %
-% 順序固定: Hung → Hung(NoRing) → NTU (Hung 系列相鄰)
+% Options:
+%   'Normalize' - true (default): normalize to H(0.1Hz), false: raw values
+%   'Scale'     - 'dB' (default) or 'linear' (only when Normalize=false)
+%
+% 順序固定: Hung → Hung(NoRing) → NTU → NTU_t → NTU_s
 
     %% Parse options
     p = inputParser;
@@ -26,11 +35,15 @@ function step_compare(experiment_names, varargin)
     addParameter(p, 'SaveFigure', true, @islogical);
     addParameter(p, 'Type', 'bode', @ischar);
     addParameter(p, 'Frequencies', [1, 10, 100], @isnumeric);
+    addParameter(p, 'Normalize', true, @islogical);
+    addParameter(p, 'Scale', 'dB', @ischar);
     parse(p, varargin{:});
     verbose = p.Results.Verbose;
     save_fig = p.Results.SaveFigure;
     compare_type = lower(p.Results.Type);
     plot_freqs = p.Results.Frequencies;
+    do_normalize = p.Results.Normalize;
+    scale_mode = lower(p.Results.Scale);
 
     if verbose
         fprintf('\n========================================\n');
@@ -41,7 +54,7 @@ function step_compare(experiment_names, varargin)
     %% Get colors and markers
     colors = get_experiment_colors();
 
-    %% Fixed display order: Hung → Hung_noring → NTU
+    %% Fixed display order
     ordered_names = order_experiments(experiment_names);
     n_exp = length(ordered_names);
     project_root = fileparts(fileparts(mfilename('fullpath')));
@@ -49,18 +62,32 @@ function step_compare(experiment_names, varargin)
     %% Dispatch by type
     switch compare_type
         case 'bode'
-            compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verbose);
+            compare_bode(ordered_names, n_exp, colors, project_root, ...
+                do_normalize, scale_mode, save_fig, verbose);
         case 'spectrum'
             compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         case 'lissajous'
             compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+        case 'ratio'
+            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
+        case 'cross_channel'
+            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose);
+        case 'ts_lissajous'
+            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+        case 'ts_timedomain'
+            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         case 'all'
-            compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verbose);
+            compare_bode(ordered_names, n_exp, colors, project_root, ...
+                do_normalize, scale_mode, save_fig, verbose);
             compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
             compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
+            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose);
+            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         otherwise
             error('step_compare:unknown_type', ...
-                'Unknown Type: %s\nValid: bode, spectrum, lissajous, all', compare_type);
+                'Unknown Type: %s\nValid: bode, spectrum, lissajous, ratio, cross_channel, ts_lissajous, ts_timedomain, all', compare_type);
     end
 
     if verbose
@@ -70,7 +97,7 @@ end
 
 %% ===== Helper: fixed display order =====
 function ordered = order_experiments(experiment_names)
-    display_order = {'Hung', 'Hung_noring', 'NTU'};
+    display_order = {'Hung'; 'Hung_noring'; 'NTU'; 'NTU_t'; 'NTU_s'};
     ordered = {};
     for k = 1:length(display_order)
         if any(strcmp(experiment_names, display_order{k}))
@@ -85,7 +112,7 @@ function ordered = order_experiments(experiment_names)
 end
 
 %% ===== Bode Comparison =====
-function compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verbose)
+function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, scale_mode, save_fig, verbose)
     %% Load CSV data
     exp_data = cell(1, n_exp);
     for i = 1:n_exp
@@ -98,7 +125,7 @@ function compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verb
         if verbose, fprintf('Loaded: %s (%d points)\n', name, height(exp_data{i})); end
     end
 
-    %% Normalization
+    %% Reference values
     H_ref = zeros(1, n_exp);
     phase_ref = zeros(1, n_exp);
     for i = 1:n_exp
@@ -112,7 +139,14 @@ function compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verb
     end
 
     %% Plot
-    fig = figure('Position', [100, 100, 900, 720], 'Name', 'Bode Comparison');
+    if do_normalize
+        fig_name = 'Bode Comparison (Normalized)';
+    elseif strcmp(scale_mode, 'linear')
+        fig_name = 'Bode Comparison (Linear)';
+    else
+        fig_name = 'Bode Comparison (dB)';
+    end
+    fig = figure('Position', [100, 100, 900, 720], 'Name', fig_name);
     freq_max = 2000;
     log_ticks = 10.^(-1:3);
     lw = 3.5;
@@ -124,14 +158,34 @@ function compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verb
     for i = 1:n_exp
         name = ordered_names{i};
         freq = exp_data{i}.Frequency_Hz;
-        mag_dB = 20*log10(exp_data{i}.Magnitude_Linear / H_ref(i));
         c = colors.(name);
-        semilogx(freq, mag_dB, [c.marker '-'], 'Color', c.rgb, ...
-            'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none', ...
-            'DisplayName', sprintf('%s (H(0.1)=%.4f)', c.display_name, H_ref(i)));
+
+        if do_normalize
+            mag_dB = 20*log10(exp_data{i}.Magnitude_Linear / H_ref(i));
+            semilogx(freq, mag_dB, [c.marker '-'], 'Color', c.rgb, ...
+                'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none', ...
+                'DisplayName', sprintf('%s (H(0.1)=%.4f)', c.display_name, H_ref(i)));
+        elseif strcmp(scale_mode, 'linear')
+            mag_lin = exp_data{i}.Magnitude_Linear;
+            semilogx(freq, mag_lin, [c.marker '-'], 'Color', c.rgb, ...
+                'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none', ...
+                'DisplayName', c.display_name);
+        else
+            mag_dB = exp_data{i}.Magnitude_dB;
+            semilogx(freq, mag_dB, [c.marker '-'], 'Color', c.rgb, ...
+                'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none', ...
+                'DisplayName', c.display_name);
+        end
     end
-    ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
-    legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
+
+    if do_normalize
+        ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
+    elseif strcmp(scale_mode, 'linear')
+        ylabel('Magnitude (V/V)', 'FontWeight', 'bold', 'FontSize', 40);
+        set(gca, 'YScale', 'log');
+    else
+        ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
+    end
     set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
     set(gca, 'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks);
     ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
@@ -143,23 +197,455 @@ function compare_bode(ordered_names, n_exp, colors, project_root, save_fig, verb
     for i = 1:n_exp
         name = ordered_names{i};
         freq = exp_data{i}.Frequency_Hz;
-        phase = exp_data{i}.Phase_deg - phase_ref(i);
         c = colors.(name);
+
+        if do_normalize
+            phase = exp_data{i}.Phase_deg - phase_ref(i);
+        else
+            phase = exp_data{i}.Phase_deg;
+        end
         semilogx(freq, phase, [c.marker '-'], 'Color', c.rgb, ...
             'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none');
     end
     xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
     ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
+    if ~do_normalize
+        ylim([-90, 1]);
+    end
     set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
     set(gca, 'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks);
     ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
     box on;
 
+    % Legend
+    ax_mag = subplot(2, 1, 1);
+    if do_normalize
+        legend(ax_mag, 'Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
+    else
+        legend(ax_mag, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22, ...
+            'Location', 'northoutside');
+    end
+
     if save_fig
         out_folder = fullfile(project_root, 'results');
         if ~exist(out_folder, 'dir'), mkdir(out_folder); end
-        out_file = fullfile(out_folder, 'Comparison_Bode.png');
+        if do_normalize
+            % TS pair → separate filename
+            is_ts = n_exp == 2 && any(strcmp(ordered_names, 'NTU_t')) && any(strcmp(ordered_names, 'NTU_s'));
+            if is_ts
+                out_file = fullfile(out_folder, 'Comparison_Bode_TS.png');
+            else
+                out_file = fullfile(out_folder, 'Comparison_Bode.png');
+            end
+        elseif strcmp(scale_mode, 'linear')
+            out_file = fullfile(out_folder, 'Comparison_Bode_Linear.png');
+        else
+            out_file = fullfile(out_folder, 'Comparison_Bode_dB.png');
+        end
         exportgraphics(fig, out_file, 'Resolution', 150);
+        if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+end
+
+%% ===== Ratio Comparison =====
+function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose)
+    if n_exp ~= 2
+        if verbose, fprintf('Ratio requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
+        return;
+    end
+
+    %% Load CSV data
+    exp_data = cell(1, 2);
+    for i = 1:2
+        name = ordered_names{i};
+        csv_path = fullfile(project_root, 'results', name, 'diagnostics', 'Raw_Bode_Data.csv');
+        if ~exist(csv_path, 'file')
+            error('step_compare:no_csv', 'CSV not found for %s: %s', name, csv_path);
+        end
+        exp_data{i} = readtable(csv_path);
+        if verbose, fprintf('Loaded: %s (%d points)\n', name, height(exp_data{i})); end
+    end
+
+    %% Compute ratio: second / first
+    freq1 = exp_data{1}.Frequency_Hz;
+    freq2 = exp_data{2}.Frequency_Hz;
+
+    % Match frequencies
+    [common_freq, ia, ib] = intersect(round(freq1*1000)/1000, round(freq2*1000)/1000);
+    if isempty(common_freq)
+        error('step_compare:no_common_freq', 'No common frequencies between %s and %s', ...
+            ordered_names{1}, ordered_names{2});
+    end
+
+    mag_ratio = exp_data{2}.Magnitude_Linear(ib) ./ exp_data{1}.Magnitude_Linear(ia);
+    phase_diff = exp_data{2}.Phase_deg(ib) - exp_data{1}.Phase_deg(ia);
+
+    c1 = colors.(ordered_names{1});
+    c2 = colors.(ordered_names{2});
+    ratio_label = sprintf('%s / %s', c2.display_name, c1.display_name);
+
+    lw = 3.5;
+    ms = 12;
+    log_ticks = 10.^(-1:3);
+
+    fig = figure('Position', [100, 100, 900, 720], 'Name', 'Magnitude Ratio');
+
+    % Magnitude ratio
+    subplot(2, 1, 1);
+    semilogx(common_freq, mag_ratio, ['o' '-'], 'Color', [0, 0, 0], ...
+        'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none', ...
+        'DisplayName', ratio_label);
+    ylabel(ratio_label, 'FontWeight', 'bold', 'FontSize', 40);
+    ylim([0, max(mag_ratio) * 1.15]);
+    set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+    set(gca, 'XScale', 'log', 'XLim', [0.1, 2000], 'XTick', log_ticks);
+    ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+    box on;
+
+    % Phase difference
+    subplot(2, 1, 2);
+    semilogx(common_freq, phase_diff, ['o' '-'], 'Color', [0, 0, 0], ...
+        'LineWidth', lw, 'MarkerSize', ms, 'MarkerFaceColor', 'none');
+    xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
+    ylabel('Phase diff (deg)', 'FontWeight', 'bold', 'FontSize', 40);
+    ylim([-90, 1]);
+    set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+    set(gca, 'XScale', 'log', 'XLim', [0.1, 2000], 'XTick', log_ticks);
+    ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+    box on;
+
+    % Shared legend at top (auto-size, centered)
+    ax_ratio = subplot(2, 1, 1);
+    legend(ax_ratio, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22, ...
+        'Location', 'northoutside');
+
+    if save_fig
+        out_file = fullfile(project_root, 'results', 'Comparison_Ratio.png');
+        exportgraphics(fig, out_file, 'Resolution', 150);
+        if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+end
+
+%% ===== Cross-Channel Comparison =====
+function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose)
+    if n_exp ~= 2
+        if verbose, fprintf('Cross-channel requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
+        return;
+    end
+
+    NUM_PERIODS = 3;
+    RELATIVE_THRESHOLD = 0.002;
+
+    config1 = load_experiment_config(ordered_names{1});
+    config2 = load_experiment_config(ordered_names{2});
+
+    colors_info = get_experiment_colors();
+    c1 = colors_info.(ordered_names{1});
+    c2 = colors_info.(ordered_names{2});
+
+    n_freq = length(plot_freqs);
+    fig = figure('Position', [100, 100, 1800, 600], 'Name', 'Cross-Channel');
+
+    for freq_idx = 1:n_freq
+        target_freq = plot_freqs(freq_idx);
+        [dat_file1, ~] = find_dat_file(config1, target_freq);
+
+        subplot(1, n_freq, freq_idx);
+        hold on;
+
+        if isempty(dat_file1)
+            if verbose, fprintf('  %.0f Hz: NOT FOUND\n', target_freq); end
+            title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+            continue;
+        end
+
+        try
+            data = read_hsdata(dat_file1);
+            fs = data.sampling_rate;
+            ch1 = config1.analysis_channel;
+            ch2 = config2.analysis_channel;
+            vm_ch1 = data.vm(:, ch1);
+            vm_ch2 = data.vm(:, ch2);
+
+            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+                'RelativeThreshold', RELATIVE_THRESHOLD, ...
+                'ConsecutivePeriods', 3, ...
+                'CheckPoints', min(25, round(fs/target_freq)), ...
+                'Verbose', false);
+
+            if steady_info.index <= 0
+                if verbose, fprintf('  %.0f Hz: NO STEADY STATE\n', target_freq); end
+                title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+                continue;
+            end
+
+            ss_start = steady_info.index;
+            period_samples = steady_info.period_samples;
+            ss_length = NUM_PERIODS * period_samples;
+            if ss_start + ss_length - 1 > length(vm_ch1)
+                ss_length = floor((length(vm_ch1) - ss_start + 1) / period_samples) * period_samples;
+            end
+            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
+            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+
+            plot(VM1_ss, VM2_ss, '-', 'LineWidth', 2, 'Color', [0, 0, 0]);
+
+            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(VM1_ss)); end
+        catch ME
+            if verbose, fprintf('  %.0f Hz: ERROR: %s\n', target_freq, ME.message); end
+        end
+
+        % Format subplot
+        if freq_idx == 1
+            ylabel(c2.display_name, 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        xlabel(c1.display_name, 'FontWeight', 'bold', 'FontSize', 40);
+        title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+        set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+        ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+        pbaspect([1 1 1]);
+        box on; grid on;
+    end
+
+    if save_fig
+        out_file = fullfile(project_root, 'results', 'Comparison_CrossChannel.png');
+        exportgraphics(fig, out_file, 'Resolution', 150);
+        if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+end
+
+%% ===== TS Lissajous (VM vs Current, tip & surface overlay) =====
+function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose)
+    if n_exp ~= 2
+        if verbose, fprintf('TS Lissajous requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
+        return;
+    end
+
+    NUM_PERIODS = 3;
+    RELATIVE_THRESHOLD = 0.002;
+    k_A = 0.3614;
+    DAC_ZERO = 32768;
+    DAC_RANGE = 20.0;
+    DAC_RES = 65536;
+
+    config1 = load_experiment_config(ordered_names{1});
+    config2 = load_experiment_config(ordered_names{2});
+    c1 = colors.(ordered_names{1});
+    c2 = colors.(ordered_names{2});
+
+    n_freq = length(plot_freqs);
+    fig = figure('Position', [100, 100, 1800, 650], 'Name', 'TS Lissajous');
+
+    all_xlim = zeros(n_freq, 2);
+    all_ylim = zeros(n_freq, 2);
+
+    for freq_idx = 1:n_freq
+        target_freq = plot_freqs(freq_idx);
+        [dat_file, ~] = find_dat_file(config1, target_freq);
+
+        subplot(1, n_freq, freq_idx);
+        hold on;
+
+        if isempty(dat_file)
+            if verbose, fprintf('  %.0f Hz: NOT FOUND\n', target_freq); end
+            title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+            continue;
+        end
+
+        try
+            data = read_hsdata(dat_file);
+            fs = data.sampling_rate;
+            excite_ch = config1.excitation_channel;
+            ch1 = config1.analysis_channel;
+            ch2 = config2.analysis_channel;
+
+            % Current from DA
+            da_raw = double(data.da(:, excite_ch));
+            V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE / DAC_RES);
+            I = k_A * V_dac;
+
+            % VM for both channels
+            vm_ch1 = data.vm(:, ch1);
+            vm_ch2 = data.vm(:, ch2);
+
+            % Steady state detection on first channel
+            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+                'RelativeThreshold', RELATIVE_THRESHOLD, ...
+                'ConsecutivePeriods', 3, ...
+                'CheckPoints', min(25, round(fs/target_freq)), ...
+                'Verbose', false);
+
+            if steady_info.index <= 0
+                if verbose, fprintf('  %.0f Hz: NO STEADY STATE\n', target_freq); end
+                title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+                continue;
+            end
+
+            ss_start = steady_info.index;
+            period_samples = steady_info.period_samples;
+            ss_length = NUM_PERIODS * period_samples;
+            if ss_start + ss_length - 1 > length(I)
+                ss_length = floor((length(I) - ss_start + 1) / period_samples) * period_samples;
+            end
+            I_ss = I(ss_start : ss_start + ss_length - 1);
+            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
+            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+
+            % Plot both channels (lines only, no markers)
+            plot(I_ss, VM1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
+                'DisplayName', c1.display_name);
+            plot(I_ss, VM2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
+                'DisplayName', c2.display_name);
+
+            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(I_ss)); end
+        catch ME
+            if verbose, fprintf('  %.0f Hz: ERROR: %s\n', target_freq, ME.message); end
+        end
+
+        % Format subplot
+        xlabel('Current (A)', 'FontWeight', 'bold', 'FontSize', 40);
+        if freq_idx == 1
+            ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+        set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+        ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+        pbaspect([1 1 1]);
+        box on; grid on;
+        all_xlim(freq_idx, :) = xlim;
+        all_ylim(freq_idx, :) = ylim;
+    end
+
+    % Unify axes
+    global_xlim = [min(all_xlim(:,1)), max(all_xlim(:,2))];
+    global_ylim = [min(all_ylim(:,1)), max(all_ylim(:,2))];
+    for k = 1:n_freq
+        subplot(1, n_freq, k);
+        xlim(global_xlim);
+        ylim(global_ylim);
+    end
+
+    % Shared legend at top (centered, no subplot resize)
+    ax_first = subplot(1, n_freq, 1);
+    lgd = legend(ax_first, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22);
+    lgd.Units = 'normalized';
+    drawnow;
+    lgd.Position = [0.5 - lgd.Position(3)/2, 0.92, lgd.Position(3), lgd.Position(4)];
+
+    if save_fig
+        freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
+        out_file = fullfile(project_root, 'results', sprintf('Comparison_TS_Lissajous_%s.png', freq_str));
+        exportgraphics(fig, out_file, 'Resolution', 150);
+        if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+end
+
+%% ===== TS Time-Domain (tip & surface overlay vs time) =====
+function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose)
+    if n_exp ~= 2
+        if verbose, fprintf('TS TimeDomain requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
+        return;
+    end
+
+    NUM_PERIODS = 3;
+    RELATIVE_THRESHOLD = 0.002;
+
+    config1 = load_experiment_config(ordered_names{1});
+    config2 = load_experiment_config(ordered_names{2});
+    c1 = colors.(ordered_names{1});
+    c2 = colors.(ordered_names{2});
+
+    n_freq = length(plot_freqs);
+    fig = figure('Position', [100, 100, 1800, 700], 'Name', 'TS Time-Domain');
+    ax_handles = gobjects(1, n_freq);
+
+    for freq_idx = 1:n_freq
+        target_freq = plot_freqs(freq_idx);
+        [dat_file, ~] = find_dat_file(config1, target_freq);
+
+        ax_handles(freq_idx) = subplot(1, n_freq, freq_idx);
+        hold on;
+
+        if isempty(dat_file)
+            if verbose, fprintf('  %.0f Hz: NOT FOUND\n', target_freq); end
+            title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+            continue;
+        end
+
+        try
+            data = read_hsdata(dat_file);
+            fs = data.sampling_rate;
+            ch1 = config1.analysis_channel;
+            ch2 = config2.analysis_channel;
+
+            vm_ch1 = data.vm(:, ch1);
+            vm_ch2 = data.vm(:, ch2);
+
+            % Steady state detection
+            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+                'RelativeThreshold', RELATIVE_THRESHOLD, ...
+                'ConsecutivePeriods', 3, ...
+                'CheckPoints', min(25, round(fs/target_freq)), ...
+                'Verbose', false);
+
+            if steady_info.index <= 0
+                if verbose, fprintf('  %.0f Hz: NO STEADY STATE\n', target_freq); end
+                title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+                continue;
+            end
+
+            ss_start = steady_info.index;
+            period_samples = steady_info.period_samples;
+            ss_length = NUM_PERIODS * period_samples;
+            if ss_start + ss_length - 1 > length(vm_ch1)
+                ss_length = floor((length(vm_ch1) - ss_start + 1) / period_samples) * period_samples;
+            end
+            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
+            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+
+            % Time axis in ms
+            t_ms = (0:length(VM1_ss)-1) / fs * 1000;
+
+            plot(t_ms, VM1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
+                'DisplayName', c1.display_name);
+            plot(t_ms, VM2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
+                'DisplayName', c2.display_name);
+
+            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(VM1_ss)); end
+        catch ME
+            if verbose, fprintf('  %.0f Hz: ERROR: %s\n', target_freq, ME.message); end
+        end
+
+        % Format subplot
+        if freq_idx == n_freq
+            xlabel('Time (ms)', 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        if freq_idx == 1
+            ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+        set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+        ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+        box on; grid on;
+    end
+
+    % Shrink subplots to make room for legend at top
+    for k = 1:n_freq
+        pos = get(ax_handles(k), 'Position');
+        pos(4) = pos(4) * 0.88;
+        set(ax_handles(k), 'Position', pos);
+    end
+
+    % Shared legend at top (centered)
+    lgd = legend(ax_handles(1), 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22);
+    lgd.Units = 'normalized';
+    drawnow;
+    lgd.Position = [0.5 - lgd.Position(3)/2, 0.94, lgd.Position(3), lgd.Position(4)];
+
+    if save_fig
+        freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
+        out_file = fullfile(project_root, 'results', sprintf('Comparison_TS_TimeDomain_%s.png', freq_str));
+        exportgraphics(fig, out_file, 'Resolution', 300);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
 end
@@ -175,11 +661,12 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
     for exp_idx = 1:n_exp
         name = ordered_names{exp_idx};
         config = load_experiment_config(name);
+        analysis_ch = config.analysis_channel;
 
         subplot(n_exp, 1, exp_idx);
         hold on;
 
-        if verbose, fprintf('Spectrum: %s\n', name); end
+        if verbose, fprintf('Spectrum: %s (ch%d)\n', name, analysis_ch); end
 
         for freq_idx = 1:length(plot_freqs)
             target_freq = plot_freqs(freq_idx);
@@ -192,9 +679,8 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
 
             try
                 data = read_hsdata(dat_file);
-                ch = data.channel;
                 fs = data.sampling_rate;
-                vm_ch = data.vm(:, ch);
+                vm_ch = data.vm(:, analysis_ch);
 
                 steady_info = detect_steady_state_relative(vm_ch, target_freq, fs, ...
                     'RelativeThreshold', RELATIVE_THRESHOLD, ...
@@ -272,11 +758,13 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
     for exp_idx = 1:n_exp
         name = ordered_names{exp_idx};
         config = load_experiment_config(name);
+        analysis_ch = config.analysis_channel;
+        excite_ch = config.excitation_channel;
 
         subplot(1, n_exp, exp_idx);
         hold on;
 
-        if verbose, fprintf('Lissajous: %s\n', name); end
+        if verbose, fprintf('Lissajous: %s (VM ch%d, DA ch%d)\n', name, analysis_ch, excite_ch); end
 
         for freq_idx = 1:length(plot_freqs)
             target_freq = plot_freqs(freq_idx);
@@ -289,10 +777,9 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
 
             try
                 data = read_hsdata(dat_file);
-                ch = data.channel;
                 fs = data.sampling_rate;
-                vm_ch = data.vm(:, ch);
-                da_raw = double(data.da(:, ch));
+                vm_ch = data.vm(:, analysis_ch);
+                da_raw = double(data.da(:, excite_ch));
                 V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE / DAC_RES);
                 I = k_A * V_dac;
 
