@@ -1,15 +1,15 @@
-function steady_info = detect_steady_state_relative(vm_signal, target_freq, sampling_rate, varargin)
+function steady_info = detect_steady_state_relative(Vm_signal, target_freq, sampling_rate, varargin)
 % DETECT_STEADY_STATE_RELATIVE Improved steady-state detection with relative threshold
 %
 % This function wraps detect_steady_state.m and uses a relative threshold
 % based on signal amplitude instead of a fixed absolute threshold.
 %
 % Syntax:
-%   steady_info = detect_steady_state_relative(vm_signal, target_freq, sampling_rate)
+%   steady_info = detect_steady_state_relative(Vm_signal, target_freq, sampling_rate)
 %   steady_info = detect_steady_state_relative(..., 'Name', Value)
 %
 % Inputs:
-%   vm_signal      - VM signal vector (N x 1)
+%   Vm_signal      - Vm signal vector (N x 1)
 %   target_freq    - Target frequency [Hz]
 %   sampling_rate  - Sampling rate [Hz]
 %
@@ -30,7 +30,7 @@ function steady_info = detect_steady_state_relative(vm_signal, target_freq, samp
 %       .absolute_threshold         - Calculated absolute threshold [V]
 %
 % Example:
-%   steady_info = detect_steady_state_relative(vm, 100, 20000, ...
+%   steady_info = detect_steady_state_relative(Vm, 100, 20000, ...
 %       'RelativeThreshold', 0.002, 'Verbose', true);
 %
 % Key Advantage:
@@ -45,7 +45,7 @@ function steady_info = detect_steady_state_relative(vm_signal, target_freq, samp
 
     %% Parse input arguments
     p = inputParser;
-    addRequired(p, 'vm_signal', @(x) isnumeric(x) && isvector(x));
+    addRequired(p, 'Vm_signal', @(x) isnumeric(x) && isvector(x));
     addRequired(p, 'target_freq', @(x) isnumeric(x) && isscalar(x) && x > 0);
     addRequired(p, 'sampling_rate', @(x) isnumeric(x) && isscalar(x) && x > 0);
     addParameter(p, 'RelativeThreshold', 0.002, @(x) isnumeric(x) && isscalar(x) && x > 0);
@@ -53,14 +53,14 @@ function steady_info = detect_steady_state_relative(vm_signal, target_freq, samp
     addParameter(p, 'CheckPoints', 25, @(x) isnumeric(x) && isscalar(x) && x > 0);
     addParameter(p, 'Verbose', true, @islogical);
 
-    parse(p, vm_signal, target_freq, sampling_rate, varargin{:});
+    parse(p, Vm_signal, target_freq, sampling_rate, varargin{:});
     opts = p.Results;
 
-    % Ensure vm_signal is a column vector
-    vm_signal = vm_signal(:);
+    % Ensure Vm_signal is a column vector
+    Vm_signal = Vm_signal(:);
 
     %% Calculate signal amplitude (peak-to-peak)
-    signal_amplitude = max(vm_signal) - min(vm_signal);
+    signal_amplitude = max(Vm_signal) - min(Vm_signal);
 
     %% Calculate absolute threshold from relative percentage
     absolute_threshold = signal_amplitude * opts.RelativeThreshold;
@@ -73,7 +73,7 @@ function steady_info = detect_steady_state_relative(vm_signal, target_freq, samp
     end
 
     %% Call original detect_steady_state with calculated threshold
-    steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate, ...
+    steady_info = detect_steady_state(Vm_signal, target_freq, sampling_rate, ...
         'StabilityThreshold', absolute_threshold, ...
         'ConsecutivePeriods', opts.ConsecutivePeriods, ...
         'CheckPoints', opts.CheckPoints, ...

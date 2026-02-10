@@ -96,7 +96,7 @@ Openloop_cali/
 │         ├─ repair_bad_points.m → Fix bad samples               │
 │         ├─ detect_excitation.m → Find excitation channel/freq  │
 │         ├─ detect_steady_state.m → Locate steady-state region  │
-│         └─ perform_fft.m → H(jω) = VM(jω) / DA(jω)             │
+│         └─ perform_fft.m → H(jω) = Vm(jω) / DA(jω)             │
 │         ↓                                                       │
 │  Frequency Response Data (P1.m ~ P6.m)                         │
 │                                                                 │
@@ -256,10 +256,10 @@ phases_processed = [-10.25, -10.35, ...];      % deg (6 x N)
 | Function | Purpose |
 |----------|---------|
 | `read_hsdata(file_path)` | Read binary .dat file |
-| `repair_bad_points(vm, da)` | Fix bad data points |
+| `repair_bad_points(Vm, da)` | Fix bad data points |
 | `detect_excitation(da, fs)` | Find excitation channel/frequency |
-| `detect_steady_state(vm, fs, freq)` | Locate steady-state |
-| `perform_fft(vm, da, info, ch, freq, fs)` | Compute H(jω) |
+| `detect_steady_state(Vm, fs, freq)` | Locate steady-state |
+| `perform_fft(Vm, da, info, ch, freq, fs)` | Compute H(jω) |
 
 ### Fitting Functions
 

@@ -8,7 +8,7 @@ function data = read_hsdata(filename)
 %   filename - Path to HSData file
 %
 % Output:
-%   data.vm           [N x 6] Measured voltage (float32)
+%   data.Vm           [N x 6] Measured voltage (float32)
 %   data.vd           [N x 6] Desired voltage (float32)
 %   data.da           [N x 6] DAC output (uint16)
 %   data.debug        [N x 16] DebugRecord (V2-V4, float32)
@@ -70,10 +70,10 @@ function data = read_hsdata(filename)
 %   Header V6:   116 bytes (V3 header + sampling_rate[4] + Kp[24] + Ki[24] + control_mode[4] + debug_signal_type[4] + loop_mode[4] + reserved[4])
 %   Header V7:   152 bytes (V6 header + test_mode[4] + position_m[12] + fd_direction[12] + R_norm[4] + FGain[4])
 %   Header V8:   168 bytes (V7 header + frame_rate[4] + fd_mode[4] + fd_const_value[4] + padding[4])
-%   V1: 60 bytes/record (vm[6] + vd[6] + da[6])
-%   V2/V3: 124 bytes/record (vm[6] + vd[6] + da[6] + DebugRecord[16])
+%   V1: 60 bytes/record (Vm[6] + vd[6] + da[6])
+%   V2/V3: 124 bytes/record (Vm[6] + vd[6] + da[6] + DebugRecord[16])
 %   V4: 148 bytes/record (V3 + adc_raw[12])
-%   V5/V6: 124 bytes/record (vm[6] + vd[6] + da[6] + DebugRecord[10] + adc_raw[12])
+%   V5/V6: 124 bytes/record (Vm[6] + vd[6] + da[6] + DebugRecord[10] + adc_raw[12])
 %       128-byte aligned USB packet, no sync marker drift
 %
 % DebugRecord index mapping (MATLAB 1-based index):
@@ -245,7 +245,7 @@ function data = read_hsdata(filename)
     record_count = floor(data_size / record_size);
 
     % Pre-allocate arrays
-    data.vm = zeros(record_count, 6, 'single');
+    data.Vm = zeros(record_count, 6, 'single');
     data.vd = zeros(record_count, 6, 'single');
     data.da = zeros(record_count, 6, 'uint16');
     if version >= 5
@@ -266,8 +266,8 @@ function data = read_hsdata(filename)
     % else: file pointer is already positioned after header
 
     for i = 1:record_count
-        % vm[6] - 24 bytes (6 x float32)
-        data.vm(i,:) = fread(fid, 6, 'float32')';
+        % Vm[6] - 24 bytes (6 x float32)
+        data.Vm(i,:) = fread(fid, 6, 'float32')';
 
         % vd[6] - 24 bytes (6 x float32)
         data.vd(i,:) = fread(fid, 6, 'float32')';

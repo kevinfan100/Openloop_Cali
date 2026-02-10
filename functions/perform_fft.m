@@ -1,14 +1,14 @@
-function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate, varargin)
+function [magnitudes, phases, magnitudes_db] = perform_fft(Vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate, varargin)
 %PERFORM_FFT 執行 FFT 分析計算轉移函數
 %
-% 計算轉移函數：H(jω) = VM(jω) / DA(jω)
+% 計算轉移函數：H(jω) = Vm(jω) / DA(jω)
 %
 % 使用方式:
-%   [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate)
+%   [magnitudes, phases, magnitudes_db] = perform_fft(Vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate)
 %   [magnitudes, phases, magnitudes_db] = perform_fft(..., 'Name', 'Value', ...)
 %
 % 輸入:
-%   vm_clean      - 清理後的 VM 數據 (6 x N)
+%   Vm_clean      - 清理後的 Vm 數據 (6 x N)
 %   da_volt       - DA 電壓數據 (6 x N)
 %   steady_info   - 穩態信息結構體
 %   excite_ch     - 激勵通道索引 (1-6)
@@ -27,7 +27,7 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
 
     %% 解析輸入參數
     p = inputParser;
-    addRequired(p, 'vm_clean', @isnumeric);
+    addRequired(p, 'Vm_clean', @isnumeric);
     addRequired(p, 'da_volt', @isnumeric);
     addRequired(p, 'steady_info', @isstruct);
     addRequired(p, 'excite_ch', @isnumeric);
@@ -37,7 +37,7 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
     addParameter(p, 'MinThreshold', 1e-10, @isnumeric);
     addParameter(p, 'Verbose', true, @islogical);
 
-    parse(p, vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate, varargin{:});
+    parse(p, Vm_clean, da_volt, steady_info, excite_ch, excite_freq, sampling_rate, varargin{:});
     opts = p.Results;
 
     %% 初始化輸出
@@ -48,7 +48,7 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
     %% 提取穩態參數
     period_samples = steady_info.period_samples;
     steady_start = steady_info.index;
-    available_length = size(vm_clean, 2) - steady_start + 1;
+    available_length = size(Vm_clean, 2) - steady_start + 1;
     available_periods = floor(available_length / period_samples);
 
     if available_periods < 1
@@ -69,7 +69,7 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
         da_signal = da_volt(excite_ch, :);
 
         % 提取並平均所有週期
-        vm_periods = zeros(6, available_periods, period_samples);
+        Vm_periods = zeros(6, available_periods, period_samples);
         da_periods = zeros(available_periods, period_samples);
 
         for p_idx = 1:available_periods
@@ -77,18 +77,18 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
             end_idx = start_idx + period_samples - 1;
 
             for ch = 1:6
-                vm_periods(ch, p_idx, :) = vm_clean(ch, start_idx:end_idx);
+                Vm_periods(ch, p_idx, :) = Vm_clean(ch, start_idx:end_idx);
             end
             da_periods(p_idx, :) = da_signal(start_idx:end_idx);
         end
 
         % 計算平均週期
-        vm_avg_periods = squeeze(mean(vm_periods, 2));  % 6 x period_samples
+        Vm_avg_periods = squeeze(mean(Vm_periods, 2));  % 6 x period_samples
         da_avg_period = mean(da_periods, 1);            % 1 x period_samples
 
         % 對每個通道進行 FFT
         for ch = 1:6
-            vm_fft = fft(vm_avg_periods(ch, :));
+            Vm_fft = fft(Vm_avg_periods(ch, :));
             da_fft = fft(da_avg_period);
 
             % 動態計算目標頻率 bin
@@ -97,11 +97,11 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
             target_bin = round(excite_freq / freq_resolution_avg) + 1;
 
             % 計算轉移函數
-            vm_complex = vm_fft(target_bin);
+            Vm_complex = Vm_fft(target_bin);
             da_complex = da_fft(target_bin);
 
             if abs(da_complex) > opts.MinThreshold
-                transfer_function = vm_complex / da_complex;
+                transfer_function = Vm_complex / da_complex;
                 magnitudes(ch) = abs(transfer_function);
                 magnitudes_db(ch) = 20 * log10(magnitudes(ch));
                 phases(ch) = angle(transfer_function) * 180 / pi;
@@ -115,11 +115,11 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
     else
         % --- 完整 FFT 模式 ---
         for ch = 1:6
-            vm_signal = vm_clean(ch, :);
+            Vm_signal = Vm_clean(ch, :);
             da_signal = da_volt(excite_ch, :);
 
             % 提取完整週期（帶邊界檢查）
-            max_index = size(vm_clean, 2);
+            max_index = size(Vm_clean, 2);
             end_index = steady_start + available_periods * period_samples - 1;
 
             if end_index > max_index
@@ -135,25 +135,25 @@ function [magnitudes, phases, magnitudes_db] = perform_fft(vm_clean, da_volt, st
                 continue;
             end
 
-            vm_period_data = vm_signal(steady_start:end_index);
+            Vm_period_data = Vm_signal(steady_start:end_index);
             da_period_data = da_signal(steady_start:end_index);
 
             % 執行 FFT
-            vm_fft = fft(vm_period_data);
+            Vm_fft = fft(Vm_period_data);
             da_fft = fft(da_period_data);
 
             % 找到目標頻率 bin
-            N = length(vm_period_data);
+            N = length(Vm_period_data);
             freq_axis = (0:N-1) * sampling_rate / N;
             freq_resolution = freq_axis(2) - freq_axis(1);
             target_bin = round(excite_freq / freq_resolution) + 1;
 
             % 計算轉移函數
-            vm_complex = vm_fft(target_bin);
+            Vm_complex = Vm_fft(target_bin);
             da_complex = da_fft(target_bin);
 
             if abs(da_complex) > opts.MinThreshold
-                transfer_function = vm_complex / da_complex;
+                transfer_function = Vm_complex / da_complex;
                 magnitudes(ch) = abs(transfer_function);
                 magnitudes_db(ch) = 20 * log10(magnitudes(ch));
                 phases(ch) = angle(transfer_function) * 180 / pi;

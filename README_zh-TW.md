@@ -103,7 +103,7 @@ Openloop_cali/
 │         ↓                                                       │
 │  [ hsdata_reader.py ]                                          │
 │         ↓                                                       │
-│  CSV 檔案 (vm_0~5, vd_0~5, da_0~5)                            │
+│  CSV 檔案 (Vm_0~5, vd_0~5, da_0~5)                            │
 │         │                                                       │
 │         └─ processed_csv/P1/*.csv                              │
 │                                                                 │
@@ -119,7 +119,7 @@ Openloop_cali/
 │         ├─ 數據修復（插值）                                   │
 │         ├─ 激勵檢測                                           │
 │         ├─ 穩態檢測                                           │
-│         ├─ FFT 分析 (H = VM/DA)                               │
+│         ├─ FFT 分析 (H = Vm/DA)                               │
 │         └─ 相位處理                                           │
 │         ↓                                                       │
 │  頻率響應數據 (P1.m ~ P6.m)                                    │
@@ -284,7 +284,7 @@ python hsdata_reader.py P1
 
 **輸出：**
 - 建立 `processed_csv/P1/*.csv`，包含欄位：
-  - `index`, `vm_0~5`, `vd_0~5`, `da_0~5`
+  - `index`, `Vm_0~5`, `vd_0~5`, `da_0~5`
 
 **進度顯示：**
 ```
@@ -318,7 +318,7 @@ openloop_bode('path/to/processed_csv/P2')
 2. 修復壞點（每 10000 個樣本）
 3. 檢測激勵通道與頻率
 4. 檢測穩態區域
-5. 執行 FFT 分析 (H = VM/DA)
+5. 執行 FFT 分析 (H = Vm/DA)
 6. 處理相位數據（180° 校正）
 7. 產生波德圖
 8. 儲存結果至 `P1.m`（或 P2.m 等）
@@ -333,7 +333,7 @@ Found 19 CSV files
   Step 1: Loading CSV data...
   Step 2: Repairing bad data points...
     Using interpolation method: spline
-    VM repair RMS error: 0.000012 V (average)
+    Vm repair RMS error: 0.000012 V (average)
     DA repair RMS error: 0.000008 V (average)
     Total data points: 100000, Repaired points: 10
   Step 3: Detecting excitation channel and frequency...
@@ -554,7 +554,7 @@ PLOT_FREQUENCY_LIST = [];         % 繪製所有頻率
 
 **格式：**
 ```csv
-index,vm_0,vm_1,vm_2,vm_3,vm_4,vm_5,vd_0,...,da_5
+index,Vm_0,Vm_1,Vm_2,Vm_3,Vm_4,Vm_5,vd_0,...,da_5
 0,0.0012,0.0034,...,32768
 1,0.0013,0.0035,...,32769
 ...
@@ -562,7 +562,7 @@ index,vm_0,vm_1,vm_2,vm_3,vm_4,vm_5,vd_0,...,da_5
 
 **欄位（共 19 欄）：**
 - `index` - 樣本索引
-- `vm_0 ~ vm_5` - VM 電壓測量值（6 通道）
+- `Vm_0 ~ Vm_5` - Vm 電壓測量值（6 通道）
 - `vd_0 ~ vd_5` - VD 電壓測量值（6 通道）
 - `da_0 ~ da_5` - DA 數位值（6 通道，0-65535）
 

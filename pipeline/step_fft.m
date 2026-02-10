@@ -46,38 +46,46 @@ function bode_table = step_fft(config, ss_results, varargin)
 
         try
             %% Extract steady-state segments
-            vm_ch = ss_results(i).vm(:, analysis_ch);
+            Vm_ch = ss_results(i).Vm(:, analysis_ch);
             da_ch = ss_results(i).da_volt(:, excite_ch);
             period_samples = ss_results(i).steady_info.period_samples;
+            super_period = ss_results(i).steady_info.super_period_samples;
             steady_start = ss_results(i).steady_info.index;
 
-            available_samples = length(vm_ch) - steady_start + 1;
-            available_periods = floor(available_samples / period_samples);
-            fft_length = available_periods * period_samples;
+            available_samples = length(Vm_ch) - steady_start + 1;
+            available_super = floor(available_samples / super_period);
+            if available_super > 0
+                fft_length = available_super * super_period;
+            else
+                % Fallback: not enough data for one super-period → use approximate period
+                available_periods = floor(available_samples / period_samples);
+                fft_length = available_periods * period_samples;
+                if verbose, fprintf('(fallback) '); end
+            end
 
-            vm_steady = vm_ch(steady_start : steady_start + fft_length - 1);
+            Vm_steady = Vm_ch(steady_start : steady_start + fft_length - 1);
             da_steady = da_ch(steady_start : steady_start + fft_length - 1);
 
             %% FFT
-            VM_fft = fft(vm_steady);
+            Vm_fft = fft(Vm_steady);
             DA_fft = fft(da_steady);
-            N = length(vm_steady);
+            N = length(Vm_steady);
             freq_axis = (0:N-1) * fs / N;
 
             %% Find fundamental bin
             [~, fundamental_bin] = min(abs(freq_axis - freq));
 
-            %% H(jω) = VM / DA
-            H_complex = VM_fft(fundamental_bin) / DA_fft(fundamental_bin);
+            %% H(jω) = Vm / DA
+            H_complex = Vm_fft(fundamental_bin) / DA_fft(fundamental_bin);
             H_magnitude_linear = abs(H_complex);
             H_magnitude_dB = 20 * log10(H_magnitude_linear);
             H_phase_deg = angle(H_complex) * 180 / pi;
 
             %% THD calculation
             half_N = floor(N/2) + 1;
-            VM_magnitude = abs(VM_fft(1:half_N)) / N * 2;
-            VM_magnitude(1) = VM_magnitude(1) / 2;
-            fundamental_amplitude = VM_magnitude(fundamental_bin);
+            Vm_magnitude = abs(Vm_fft(1:half_N)) / N * 2;
+            Vm_magnitude(1) = Vm_magnitude(1) / 2;
+            fundamental_amplitude = Vm_magnitude(fundamental_bin);
 
             harmonic_sum_sq = 0;
             nyquist = fs / 2;
@@ -87,7 +95,7 @@ function bode_table = step_fft(config, ss_results, varargin)
                     break;
                 end
                 [~, harmonic_bin] = min(abs(freq_axis(1:half_N) - harmonic_freq));
-                harmonic_sum_sq = harmonic_sum_sq + VM_magnitude(harmonic_bin)^2;
+                harmonic_sum_sq = harmonic_sum_sq + Vm_magnitude(harmonic_bin)^2;
             end
             THD_percent = sqrt(harmonic_sum_sq) / fundamental_amplitude * 100;
 

@@ -47,29 +47,33 @@ function results = step_steady_state(config, read_results, varargin)
         period_samples = round(fs / freq);
         actual_check_pts = min(check_pts, period_samples);
 
-        %% Conservative: detect on analysis channel VM
-        vm_ch = results(i).vm(:, results(i).analysis_ch);
+        %% Conservative: detect on analysis channel Vm
+        Vm_ch = results(i).Vm(:, results(i).analysis_ch);
 
         try
-            steady_info = detect_steady_state_relative(vm_ch, freq, fs, ...
+            steady_info = detect_steady_state_relative(Vm_ch, freq, fs, ...
                 'RelativeThreshold', config.steady_state.relative_threshold, ...
                 'ConsecutivePeriods', config.steady_state.consecutive_periods, ...
                 'CheckPoints', actual_check_pts, ...
                 'Verbose', false);
 
             if steady_info.index > 0
+                [sp, ~] = compute_super_period(freq, fs);
+                steady_info.super_period_samples = sp;
                 results(i).steady_info = steady_info;
                 results(i).steady_ok = true;
                 if verbose, fprintf('OK (start=%d, period=%d samples)\n', steady_info.index, steady_info.period_samples); end
             else
                 %% Low-frequency fallback: use last periods
-                total_samples = length(vm_ch);
+                total_samples = length(Vm_ch);
                 min_periods = config.steady_state.min_periods_for_fft;
                 fallback_start = max(1, total_samples - min_periods * period_samples + 1);
 
                 steady_info.index = fallback_start;
                 steady_info.period_samples = period_samples;
                 steady_info.max_periods = min_periods;
+                [sp, ~] = compute_super_period(freq, fs);
+                steady_info.super_period_samples = sp;
                 results(i).steady_info = steady_info;
                 results(i).steady_ok = true;
 

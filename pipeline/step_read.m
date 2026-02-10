@@ -12,7 +12,7 @@ function results = step_read(config, varargin)
 %   results - struct array (1 per frequency) with fields:
 %       .frequency      - target frequency [Hz]
 %       .filename       - source filename
-%       .vm             - [N x 6] VM data (float)
+%       .Vm             - [N x 6] Vm data (float)
 %       .da_volt        - [N x 6] DAC converted to voltage
 %       .fs             - sampling rate [Hz]
 %       .excite_ch      - excitation channel
@@ -33,7 +33,7 @@ function results = step_read(config, varargin)
     end
 
     n_files = length(config.data_files);
-    results = struct('frequency', {}, 'filename', {}, 'vm', {}, 'da_volt', {}, ...
+    results = struct('frequency', {}, 'filename', {}, 'Vm', {}, 'da_volt', {}, ...
                      'fs', {}, 'excite_ch', {}, 'analysis_ch', {}, 'header', {}, 'success', {});
 
     for i = 1:n_files
@@ -83,10 +83,10 @@ function results = step_read(config, varargin)
 
             %% Bad point repair (100kHz only)
             if config.enable_bad_point_repair && fs >= 100000
-                [vm_clean, da_clean] = repair_bad_points(data.vm, da_volt, ...
+                [Vm_clean, da_clean] = repair_bad_points(data.Vm, da_volt, ...
                     'BadPointInterval', config.bad_point_interval);
             else
-                vm_clean = data.vm;
+                Vm_clean = data.Vm;
                 da_clean = da_volt;
             end
 
@@ -94,16 +94,16 @@ function results = step_read(config, varargin)
             r = struct();
             r.frequency = target_freq;
             r.filename = config.data_files{i};
-            r.vm = vm_clean;
+            r.Vm = Vm_clean;
             r.da_volt = da_clean;
             r.fs = fs;
             r.excite_ch = data.channel;
             r.analysis_ch = config.analysis_channel;
-            r.header = rmfield(data, {'vm', 'vd', 'da', 'debug'});
+            r.header = rmfield(data, {'Vm', 'vd', 'da', 'debug'});
             r.success = true;
             results(end+1) = r; %#ok<AGROW>
 
-            if verbose, fprintf('OK (%d samples)\n', size(vm_clean, 1)); end
+            if verbose, fprintf('OK (%d samples)\n', size(Vm_clean, 1)); end
 
         catch ME
             if verbose, fprintf('ERROR: %s\n', ME.message); end
@@ -111,7 +111,7 @@ function results = step_read(config, varargin)
             r = struct();
             r.frequency = target_freq;
             r.filename = config.data_files{i};
-            r.vm = [];
+            r.Vm = [];
             r.da_volt = [];
             r.fs = 0;
             r.excite_ch = 0;

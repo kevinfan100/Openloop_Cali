@@ -1,5 +1,5 @@
 function config = NTU_s_config()
-%NTU_S_CONFIG NTU surface sensor 配置 (DA ch2 → VM ch2)
+%NTU_S_CONFIG NTU surface sensor 配置 (DA ch2 → Vm ch2)
 %
 % 與 NTU_t 共用同一組 .dat 檔案 (NTU_single_ts_*.dat)
 % analysis_channel = 2 (surface sensor, = excitation_channel)

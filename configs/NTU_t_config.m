@@ -1,5 +1,5 @@
 function config = NTU_t_config()
-%NTU_T_CONFIG NTU tip sensor 配置 (DA ch2 → VM ch3)
+%NTU_T_CONFIG NTU tip sensor 配置 (DA ch2 → Vm ch3)
 %
 % 與 NTU_s 共用同一組 .dat 檔案 (NTU_single_ts_*.dat)
 % analysis_channel = 3 (tip sensor)
@@ -11,7 +11,7 @@ function config = NTU_t_config()
     config.display_name = 'V_{tip}';
     config.data_prefix = 'NTU_single_ts';
 
-    %% 跨通道: VM ch3 (tip sensor)
+    %% 跨通道: Vm ch3 (tip sensor)
     config.analysis_channel = 3;
 
     %% 路徑

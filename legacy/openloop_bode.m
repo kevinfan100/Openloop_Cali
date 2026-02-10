@@ -108,12 +108,12 @@ for i = 1:length(csv_files)
     try
         % --- Step 3.1: Load CSV data ---
         fprintf('  Step 1: Loading CSV data...\n');
-        [vm_data, da_data] = load_csv_data(file_path);
-        data_length = size(vm_data, 2);
+        [Vm_data, da_data] = load_csv_data(file_path);
+        data_length = size(Vm_data, 2);
 
         % --- Step 3.2: Repair bad data points ---
         fprintf('  Step 2: Repairing bad data points...\n');
-        [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length, INTERPOLATION_METHOD);
+        [Vm_clean, da_clean] = repair_data_points(Vm_data, da_data, data_length, INTERPOLATION_METHOD);
 
         % Convert DA to voltage
         da_volt = (da_clean - 32768) * (20.0 / 65536);
@@ -125,7 +125,7 @@ for i = 1:length(csv_files)
 
         % --- Step 3.4: Steady-state detection ---
         fprintf('  Step 4: Steady-state detection...\n');
-        steady_info = detect_steady_state(vm_clean, excite_freq, SAMPLING_RATE, ...
+        steady_info = detect_steady_state(Vm_clean, excite_freq, SAMPLING_RATE, ...
             STABILITY_THRESHOLD, CONSECUTIVE_PERIODS, CHECK_POINTS, START_PERIOD);
 
         if isempty(steady_info)
@@ -137,14 +137,14 @@ for i = 1:length(csv_files)
 
         % Plot steady-state waveform overlay (if enabled)
         if PLOT_STEADY_STATE && should_plot_frequency(excite_freq, PLOT_FREQUENCY_LIST)
-            plot_steady_state_overlay(vm_clean, da_volt, steady_info, excite_ch, ...
+            plot_steady_state_overlay(Vm_clean, da_volt, steady_info, excite_ch, ...
                 excite_freq, CONSECUTIVE_PERIODS, PLOT_CHANNEL, SAMPLING_RATE);
         end
 
         % --- Step 3.5: FFT analysis ---
         fprintf('  Step 5: FFT analysis (mode: %s)...\n', FFT_MODE);
         [current_magnitudes_db, current_phases] = perform_fft_analysis(...
-            vm_clean, da_volt, steady_info, excite_ch, excite_freq, ...
+            Vm_clean, da_volt, steady_info, excite_ch, excite_freq, ...
             SAMPLING_RATE, FFT_MODE, MIN_DA_THRESHOLD, COMPARE_FFT_METHODS);
 
         % --- Step 3.6: Store results ---
@@ -225,30 +225,30 @@ end
 %  5.1 DATA LOADING & PREPROCESSING
 %  ------------------------------------------------------------------------
 
-function [vm_data, da_data] = load_csv_data(file_path)
-% LOAD_CSV_DATA Load VM and DA data from CSV file
+function [Vm_data, da_data] = load_csv_data(file_path)
+% LOAD_CSV_DATA Load Vm and DA data from CSV file
 %
 % Input:
 %   file_path - Path to CSV file
 %
 % Output:
-%   vm_data - VM voltage data (6 x N)
+%   Vm_data - Vm voltage data (6 x N)
 %   da_data - DA digital data (6 x N)
 
     raw_data = readtable(file_path);
     data_length = height(raw_data);
 
     % Initialize data matrices
-    vm_data = zeros(6, data_length);
+    Vm_data = zeros(6, data_length);
     da_data = zeros(6, data_length);
 
     % Extract data for each channel
     for ch = 1:6
-        vm_col = sprintf('vm_%d', ch-1);
+        Vm_col = sprintf('Vm_%d', ch-1);
         da_col = sprintf('da_%d', ch-1);
 
-        if ismember(vm_col, raw_data.Properties.VariableNames)
-            vm_data(ch, :) = raw_data.(vm_col);
+        if ismember(Vm_col, raw_data.Properties.VariableNames)
+            Vm_data(ch, :) = raw_data.(Vm_col);
         end
 
         if ismember(da_col, raw_data.Properties.VariableNames)
@@ -258,17 +258,17 @@ function [vm_data, da_data] = load_csv_data(file_path)
 end
 
 
-function [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length, interpolation_method)
+function [Vm_clean, da_clean] = repair_data_points(Vm_data, da_data, data_length, interpolation_method)
 % REPAIR_DATA_POINTS Repair bad data points using interpolation
 %
 % Input:
-%   vm_data - Raw VM data (6 x N)
+%   Vm_data - Raw Vm data (6 x N)
 %   da_data - Raw DA data (6 x N)
 %   data_length - Total number of data points
 %   interpolation_method - Interpolation method ('linear'|'spline'|'pchip'|'makima')
 %
 % Output:
-%   vm_clean - Repaired VM data (6 x N)
+%   Vm_clean - Repaired Vm data (6 x N)
 %   da_clean - Repaired DA data (6 x N)
 
     % Identify bad data indices (every 10000th point)
@@ -278,11 +278,11 @@ function [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length
     fprintf('    Using interpolation method: %s\n', interpolation_method);
 
     % Copy original data
-    vm_clean = vm_data;
+    Vm_clean = Vm_data;
     da_clean = da_data;
 
     % Save original bad point values for comparison
-    vm_bad_original = vm_data(:, bad_indices);
+    Vm_bad_original = Vm_data(:, bad_indices);
     da_bad_original = da_data(:, bad_indices);
 
     if num_bad_points > 0
@@ -294,15 +294,15 @@ function [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length
             if length(good_indices) >= 4
                 try
                     % Use selected interpolation method
-                    vm_clean(ch, bad_indices) = interp1(good_indices, ...
-                        vm_data(ch, good_indices), bad_indices, interpolation_method, 'extrap');
+                    Vm_clean(ch, bad_indices) = interp1(good_indices, ...
+                        Vm_data(ch, good_indices), bad_indices, interpolation_method, 'extrap');
                     da_clean(ch, bad_indices) = interp1(good_indices, ...
                         da_data(ch, good_indices), bad_indices, interpolation_method, 'extrap');
                 catch
                     % Fallback to linear interpolation if advanced method fails
                     fprintf('    Warning: Ch%d interpolation failed, using linear fallback\n', ch);
-                    vm_clean(ch, bad_indices) = interp1(good_indices, ...
-                        vm_data(ch, good_indices), bad_indices, 'linear', 'extrap');
+                    Vm_clean(ch, bad_indices) = interp1(good_indices, ...
+                        Vm_data(ch, good_indices), bad_indices, 'linear', 'extrap');
                     da_clean(ch, bad_indices) = interp1(good_indices, ...
                         da_data(ch, good_indices), bad_indices, 'linear', 'extrap');
                 end
@@ -310,7 +310,7 @@ function [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length
                 % Insufficient data points, use simple linear interpolation
                 for idx = bad_indices
                     if idx > 1 && idx < data_length
-                        vm_clean(ch, idx) = (vm_data(ch, idx-1) + vm_data(ch, idx+1)) / 2;
+                        Vm_clean(ch, idx) = (Vm_data(ch, idx-1) + Vm_data(ch, idx+1)) / 2;
                         da_clean(ch, idx) = (da_data(ch, idx-1) + da_data(ch, idx+1)) / 2;
                     end
                 end
@@ -318,10 +318,10 @@ function [vm_clean, da_clean] = repair_data_points(vm_data, da_data, data_length
         end
 
         % Calculate repair statistics
-        vm_error_rms = sqrt(mean((vm_clean(:, bad_indices) - vm_bad_original).^2, 2));
+        Vm_error_rms = sqrt(mean((Vm_clean(:, bad_indices) - Vm_bad_original).^2, 2));
         da_error_rms = sqrt(mean((da_clean(:, bad_indices) - da_bad_original).^2, 2));
 
-        fprintf('    VM repair RMS error: %.6f V (average)\n', mean(vm_error_rms));
+        fprintf('    Vm repair RMS error: %.6f V (average)\n', mean(Vm_error_rms));
         fprintf('    DA repair RMS error: %.6f V (average)\n', mean(da_error_rms));
     end
 
@@ -380,12 +380,12 @@ function [excite_ch, excite_freq] = detect_excitation(da_voltage, sampling_rate)
 end
 
 
-function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate, ...
+function steady_info = detect_steady_state(Vm_signal, target_freq, sampling_rate, ...
     stability_threshold, consecutive_periods, check_points, start_period)
-% DETECT_STEADY_STATE Detect steady-state region in VM signal
+% DETECT_STEADY_STATE Detect steady-state region in Vm signal
 %
 % Input:
-%   vm_signal - VM voltage data (6 x N or 1 x N)
+%   Vm_signal - Vm voltage data (6 x N or 1 x N)
 %   target_freq - Signal frequency (Hz)
 %   sampling_rate - Sampling rate (Hz)
 %   stability_threshold - Maximum allowed difference between periods (V)
@@ -401,14 +401,14 @@ function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate
 %       .period_samples - Samples per period
 
     % Convert to 6-channel matrix if single channel input
-    if isvector(vm_signal)
-        vm_clean = vm_signal(:)';
-        vm_clean = repmat(vm_clean, 6, 1);
+    if isvector(Vm_signal)
+        Vm_clean = Vm_signal(:)';
+        Vm_clean = repmat(Vm_clean, 6, 1);
     else
-        vm_clean = vm_signal;
+        Vm_clean = Vm_signal;
     end
 
-    clean_length = size(vm_clean, 2);
+    clean_length = size(Vm_clean, 2);
 
     % Calculate period parameters
     period_samples = round(sampling_rate / target_freq);
@@ -432,9 +432,9 @@ function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate
 
     steady_periods = [];
 
-    % Detect steady-state for each VM channel
-    for vm_ch = 1:6
-        signal = vm_clean(vm_ch, :);
+    % Detect steady-state for each Vm channel
+    for Vm_ch = 1:6
+        signal = Vm_clean(Vm_ch, :);
 
         % Test each period starting from start_period
         for test_period = start_period:(max_periods - consecutive_periods)
@@ -510,14 +510,14 @@ end
 %  ------------------------------------------------------------------------
 
 function [magnitudes_db, phases] = perform_fft_analysis(...
-    vm_clean, da_volt, steady_info, excite_ch, excite_freq, ...
+    Vm_clean, da_volt, steady_info, excite_ch, excite_freq, ...
     sampling_rate, fft_mode, min_da_threshold, compare_fft_methods)
 % PERFORM_FFT_ANALYSIS Calculate transfer function using FFT
 %
 % Transfer Function Calculation:
-%   H(jω) = VM(jω) / DA(jω)
+%   H(jω) = Vm(jω) / DA(jω)
 %   - DA: Excitation signal (input)
-%   - VM: System response (output)
+%   - Vm: System response (output)
 %   - Goal: Calculate magnitude |H| and phase ∠H at excitation frequency
 %
 % Two FFT Modes:
@@ -529,7 +529,7 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
 %      - Lower frequency resolution
 %
 % Input:
-%   vm_clean - Cleaned VM data (6 x N)
+%   Vm_clean - Cleaned Vm data (6 x N)
 %   da_volt - DA voltage data (6 x N)
 %   steady_info - Steady-state information structure
 %   excite_ch - Excitation channel index (1-6)
@@ -549,7 +549,7 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
     % Extract steady-state parameters
     period_samples = steady_info.period_samples;
     steady_start = steady_info.index;
-    available_length = size(vm_clean, 2) - steady_start + 1;
+    available_length = size(Vm_clean, 2) - steady_start + 1;
     available_periods = floor(available_length / period_samples);
 
     if available_periods < 1
@@ -564,7 +564,7 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
         da_signal = da_volt(excite_ch, :);
 
         % Extract and average all periods
-        vm_periods = zeros(6, available_periods, period_samples);
+        Vm_periods = zeros(6, available_periods, period_samples);
         da_periods = zeros(available_periods, period_samples);
 
         for p = 1:available_periods
@@ -572,22 +572,22 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
             end_idx = start_idx + period_samples - 1;
 
             for ch = 1:6
-                vm_periods(ch, p, :) = vm_clean(ch, start_idx:end_idx);
+                Vm_periods(ch, p, :) = Vm_clean(ch, start_idx:end_idx);
             end
             da_periods(p, :) = da_signal(start_idx:end_idx);
         end
 
         % Calculate averaged periods
-        vm_avg_periods = squeeze(mean(vm_periods, 2));  % 6 x period_samples
+        Vm_avg_periods = squeeze(mean(Vm_periods, 2));  % 6 x period_samples
         da_avg_period = mean(da_periods, 1);            % 1 x period_samples
 
         % Calculate period-to-period standard deviation
-        vm_std = squeeze(std(vm_periods, 0, 2));
-        fprintf('    VM inter-period std: %.6f (average)\n', mean(vm_std(:)));
+        Vm_std = squeeze(std(Vm_periods, 0, 2));
+        fprintf('    Vm inter-period std: %.6f (average)\n', mean(Vm_std(:)));
 
         % FFT for each channel
         for ch = 1:6
-            vm_fft = fft(vm_avg_periods(ch, :));
+            Vm_fft = fft(Vm_avg_periods(ch, :));
             da_fft = fft(da_avg_period);
 
             % Calculate target bin dynamically (not always bin 2!)
@@ -603,11 +603,11 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
             end
 
             % Calculate transfer function
-            vm_complex = vm_fft(target_bin);
+            Vm_complex = Vm_fft(target_bin);
             da_complex = da_fft(target_bin);
 
             if abs(da_complex) > min_da_threshold
-                transfer_function = vm_complex / da_complex;
+                transfer_function = Vm_complex / da_complex;
                 magnitude_linear = abs(transfer_function);
                 magnitudes_db(ch) = 20 * log10(magnitude_linear);
                 phases(ch) = angle(transfer_function) * 180 / pi;
@@ -621,7 +621,7 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
         if compare_fft_methods
             fprintf('    Calculating full FFT for comparison...\n');
             [magnitudes_full, phases_full] = calculate_full_fft(...
-                vm_clean, da_volt, excite_ch, excite_freq, ...
+                Vm_clean, da_volt, excite_ch, excite_freq, ...
                 steady_start, available_periods, period_samples, ...
                 sampling_rate, min_da_threshold);
 
@@ -638,11 +638,11 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
         fprintf('    Using full FFT: %d periods\n', available_periods);
 
         for ch = 1:6
-            vm_signal = vm_clean(ch, :);
+            Vm_signal = Vm_clean(ch, :);
             da_signal = da_volt(excite_ch, :);
 
             % Extract complete periods with boundary check
-            max_index = size(vm_clean, 2);
+            max_index = size(Vm_clean, 2);
             end_index = steady_start + available_periods * period_samples - 1;
 
             % Boundary validation
@@ -662,15 +662,15 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
                 continue;
             end
 
-            vm_period_data = vm_signal(steady_start:end_index);
+            Vm_period_data = Vm_signal(steady_start:end_index);
             da_period_data = da_signal(steady_start:end_index);
 
             % Perform FFT
-            vm_fft = fft(vm_period_data);
+            Vm_fft = fft(Vm_period_data);
             da_fft = fft(da_period_data);
 
             % Find target frequency bin
-            N = length(vm_period_data);
+            N = length(Vm_period_data);
             freq_axis = (0:N-1) * sampling_rate / N;
             freq_resolution = freq_axis(2) - freq_axis(1);
             target_bin = round(excite_freq / freq_resolution) + 1;
@@ -683,11 +683,11 @@ function [magnitudes_db, phases] = perform_fft_analysis(...
             end
 
             % Calculate transfer function
-            vm_complex = vm_fft(target_bin);
+            Vm_complex = Vm_fft(target_bin);
             da_complex = da_fft(target_bin);
 
             if abs(da_complex) > min_da_threshold
-                transfer_function = vm_complex / da_complex;
+                transfer_function = Vm_complex / da_complex;
                 magnitude_linear = abs(transfer_function);
                 magnitudes_db(ch) = 20 * log10(magnitude_linear);
                 phases(ch) = angle(transfer_function) * 180 / pi;
@@ -701,7 +701,7 @@ end
 
 
 function [magnitudes_db, phases] = calculate_full_fft(...
-    vm_clean, da_volt, excite_ch, excite_freq, ...
+    Vm_clean, da_volt, excite_ch, excite_freq, ...
     steady_start, available_periods, period_samples, ...
     sampling_rate, min_da_threshold)
 % CALCULATE_FULL_FFT Helper function for full FFT calculation
@@ -712,7 +712,7 @@ function [magnitudes_db, phases] = calculate_full_fft(...
 
     for ch = 1:6
         % Boundary check
-        max_index = size(vm_clean, 2);
+        max_index = size(Vm_clean, 2);
         end_index = steady_start + available_periods * period_samples - 1;
 
         if end_index > max_index
@@ -729,13 +729,13 @@ function [magnitudes_db, phases] = calculate_full_fft(...
             continue;
         end
 
-        vm_full = vm_clean(ch, steady_start:end_index);
+        Vm_full = Vm_clean(ch, steady_start:end_index);
         da_full = da_volt(excite_ch, steady_start:end_index);
 
-        vm_fft_full = fft(vm_full);
+        Vm_fft_full = fft(Vm_full);
         da_fft_full = fft(da_full);
 
-        N_full = length(vm_full);
+        N_full = length(Vm_full);
         freq_res = sampling_rate / N_full;
         target_bin_full = round(excite_freq / freq_res) + 1;
 
@@ -747,7 +747,7 @@ function [magnitudes_db, phases] = calculate_full_fft(...
         end
 
         if abs(da_fft_full(target_bin_full)) > min_da_threshold
-            H_full = vm_fft_full(target_bin_full) / da_fft_full(target_bin_full);
+            H_full = Vm_fft_full(target_bin_full) / da_fft_full(target_bin_full);
             magnitudes_db(ch) = 20 * log10(abs(H_full));
             phases(ch) = angle(H_full) * 180 / pi;
         else
@@ -976,12 +976,12 @@ function phases_processed = plot_bode_results(frequencies, magnitudes_db, phases
 end
 
 
-function plot_steady_state_overlay(vm_clean, da_volt, steady_info, excite_ch, ...
+function plot_steady_state_overlay(Vm_clean, da_volt, steady_info, excite_ch, ...
     target_freq, num_periods, plot_channel, sampling_rate)
 % PLOT_STEADY_STATE_OVERLAY Visualize steady-state waveform overlay
 %
 % Input:
-%   vm_clean - Cleaned VM data (6 x N)
+%   Vm_clean - Cleaned Vm data (6 x N)
 %   da_volt - DA voltage data (6 x N)
 %   steady_info - Steady-state information structure
 %   excite_ch - Excitation channel index
@@ -996,7 +996,7 @@ function plot_steady_state_overlay(vm_clean, da_volt, steady_info, excite_ch, ..
     max_periods = steady_info.max_periods;
 
     % Calculate available periods
-    available_from_steady = floor((size(vm_clean, 2) - steady_start + 1) / period_samples);
+    available_from_steady = floor((size(Vm_clean, 2) - steady_start + 1) / period_samples);
     periods_to_plot = min(num_periods, available_from_steady);
 
     if periods_to_plot < 1
@@ -1032,21 +1032,21 @@ function plot_steady_state_overlay(vm_clean, da_volt, steady_info, excite_ch, ..
         ax = subplot(plot_rows, plot_cols, idx);
         hold on;
 
-        % Plot VM data for each period
+        % Plot Vm data for each period
         legend_entries = {};
-        all_vm_data = [];
+        all_Vm_data = [];
 
         for p = 1:periods_to_plot
             period_start = steady_start + (p-1) * period_samples;
             period_end = period_start + period_samples - 1;
 
-            if period_end <= size(vm_clean, 2)
-                vm_data = vm_clean(ch, period_start:period_end);
-                all_vm_data(p, :) = vm_data;
+            if period_end <= size(Vm_clean, 2)
+                Vm_data = Vm_clean(ch, period_start:period_end);
+                all_Vm_data(p, :) = Vm_data;
 
-                % Plot VM waveform with color gradient
+                % Plot Vm waveform with color gradient
                 color_adjusted = colors(p,:) * (0.3 + 0.7 * (p/periods_to_plot));
-                plot(time_axis, vm_data, '-', ...
+                plot(time_axis, Vm_data, '-', ...
                     'Color', color_adjusted, 'LineWidth', 2.5);
                 legend_entries{end+1} = sprintf('Period %d', steady_info.period + p - 1);
             end
@@ -1070,7 +1070,7 @@ function plot_steady_state_overlay(vm_clean, da_volt, steady_info, excite_ch, ..
 
         % Labels and formatting
         xlabel('Time (ms)', 'FontWeight', 'bold', 'FontSize', 16);
-        ylabel('VM', 'FontWeight', 'bold', 'FontSize', 16);
+        ylabel('Vm', 'FontWeight', 'bold', 'FontSize', 16);
 
         % Title
         if ch == excite_ch

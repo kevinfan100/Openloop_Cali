@@ -1,14 +1,14 @@
-function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate, varargin)
+function steady_info = detect_steady_state(Vm_signal, target_freq, sampling_rate, varargin)
 %DETECT_STEADY_STATE 檢測穩態區域
 %
 % 比較相鄰週期的波形差異，找出穩態起始點
 %
 % 使用方式:
-%   steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate)
+%   steady_info = detect_steady_state(Vm_signal, target_freq, sampling_rate)
 %   steady_info = detect_steady_state(..., 'Name', 'Value', ...)
 %
 % 輸入:
-%   vm_signal     - VM 電壓數據 (6 x N) 或 (1 x N)
+%   Vm_signal     - Vm 電壓數據 (6 x N) 或 (1 x N)
 %   target_freq   - 目標頻率 [Hz]
 %   sampling_rate - 取樣頻率 [Hz]
 %
@@ -28,7 +28,7 @@ function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate
 
     %% 解析輸入參數
     p = inputParser;
-    addRequired(p, 'vm_signal', @isnumeric);
+    addRequired(p, 'Vm_signal', @isnumeric);
     addRequired(p, 'target_freq', @isnumeric);
     addRequired(p, 'sampling_rate', @isnumeric);
     addParameter(p, 'StabilityThreshold', 2e-3, @isnumeric);
@@ -37,18 +37,18 @@ function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate
     addParameter(p, 'StartPeriod', 1, @isnumeric);
     addParameter(p, 'Verbose', true, @islogical);
 
-    parse(p, vm_signal, target_freq, sampling_rate, varargin{:});
+    parse(p, Vm_signal, target_freq, sampling_rate, varargin{:});
     opts = p.Results;
 
     %% 轉換為 6 通道矩陣（如果是單通道輸入）
-    if isvector(vm_signal)
-        vm_clean = vm_signal(:)';
-        vm_clean = repmat(vm_clean, 6, 1);
+    if isvector(Vm_signal)
+        Vm_clean = Vm_signal(:)';
+        Vm_clean = repmat(Vm_clean, 6, 1);
     else
-        vm_clean = vm_signal;
+        Vm_clean = Vm_signal;
     end
 
-    clean_length = size(vm_clean, 2);
+    clean_length = size(Vm_clean, 2);
 
     %% 計算週期參數
     period_samples = round(sampling_rate / target_freq);
@@ -76,11 +76,11 @@ function steady_info = detect_steady_state(vm_signal, target_freq, sampling_rate
         return;
     end
 
-    %% 對每個 VM 通道檢測穩態
+    %% 對每個 Vm 通道檢測穩態
     steady_periods = [];
 
-    for vm_ch = 1:6
-        signal = vm_clean(vm_ch, :);
+    for Vm_ch = 1:6
+        signal = Vm_clean(Vm_ch, :);
 
         % 從 start_period 開始測試每個週期
         for test_period = opts.StartPeriod:(max_periods - opts.ConsecutivePeriods)

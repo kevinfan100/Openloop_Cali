@@ -1,10 +1,10 @@
 %% ========================================================================
-%  VM Steady-State Spectrum Comparison (Hung / Hung No Ring / NTU)
+%  Vm Steady-State Spectrum Comparison (Hung / Hung No Ring / NTU)
 %  觀察各實驗在 1/10/100 Hz 下的頻域表現
 % ========================================================================
 %
 % Purpose:
-%   比較三組實驗的 VM 穩態頻譜（FFT）
+%   比較三組實驗的 Vm 穩態頻譜（FFT）
 %   觀察基頻尖峰、諧波結構、寬頻雜訊底
 %
 % Layout:
@@ -19,7 +19,7 @@
 %   NTU:           NTU_tweezer/single_raw_data/NTU_single_{freq}.dat
 %
 % Output:
-%   VM_Spectrum_Comparison.png
+%   Vm_Spectrum_Comparison.png
 %
 % Author: Claude Code
 % Date: 2026-02-06
@@ -28,7 +28,7 @@ clear; clc; close all;
 
 fprintf('\n');
 fprintf('========================================================================\n');
-fprintf('  VM Spectrum Comparison (Hung / Hung No Ring / NTU)\n');
+fprintf('  Vm Spectrum Comparison (Hung / Hung No Ring / NTU)\n');
 fprintf('========================================================================\n\n');
 
 %% Configuration
@@ -64,7 +64,7 @@ experiments(3).prefix = 'NTU_single_';
 colors = lines(3);
 
 %% Create figure
-fig = figure('Position', [100, 100, 1200, 1200], 'Name', 'VM Spectrum');
+fig = figure('Position', [100, 100, 1200, 1200], 'Name', 'Vm Spectrum');
 
 %% Process each experiment (one subplot per experiment)
 for exp_idx = 1:length(experiments)
@@ -92,12 +92,12 @@ for exp_idx = 1:length(experiments)
             ch = data.channel;
             fs = data.sampling_rate;
 
-            % Step 2: Extract excitation channel VM
-            vm_ch2 = data.vm(:, ch);
+            % Step 2: Extract excitation channel Vm
+            Vm_ch2 = data.Vm(:, ch);
 
             % Step 4: Steady-state detection
             steady_info = detect_steady_state_relative(...
-                vm_ch2, target_freq, fs, ...
+                Vm_ch2, target_freq, fs, ...
                 'RelativeThreshold', RELATIVE_THRESHOLD, ...
                 'ConsecutivePeriods', 3, 'CheckPoints', 25, 'Verbose', false);
 
@@ -111,17 +111,17 @@ for exp_idx = 1:length(experiments)
             period_samples = steady_info.period_samples;
             ss_length = NUM_PERIODS * period_samples;
 
-            if ss_start + ss_length - 1 > length(vm_ch2)
-                ss_length = length(vm_ch2) - ss_start + 1;
+            if ss_start + ss_length - 1 > length(Vm_ch2)
+                ss_length = length(Vm_ch2) - ss_start + 1;
                 ss_length = floor(ss_length / period_samples) * period_samples;
             end
 
-            VM_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+            Vm_ss = Vm_ch2(ss_start : ss_start + ss_length - 1);
 
             % Step 6: FFT → single-sided amplitude spectrum
-            N = length(VM_ss);
-            VM_fft = fft(VM_ss);
-            amp = abs(VM_fft(1:floor(N/2)+1)) / N * 2;
+            N = length(Vm_ss);
+            Vm_fft = fft(Vm_ss);
+            amp = abs(Vm_fft(1:floor(N/2)+1)) / N * 2;
             amp(1) = amp(1) / 2;  % DC component
             freq_axis = (0:floor(N/2)) * fs / N;
 
@@ -140,7 +140,7 @@ for exp_idx = 1:length(experiments)
     if exp_idx == length(experiments)
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
     end
-    ylabel('|VM| (V)', 'FontWeight', 'bold', 'FontSize', 40);
+    ylabel('|Vm| (V)', 'FontWeight', 'bold', 'FontSize', 40);
     title(exp.name, 'FontWeight', 'bold', 'FontSize', 24);
 
     ax = gca;
@@ -162,7 +162,7 @@ lgd = legend(ax_first, 'Orientation', 'horizontal', ...
 lgd.Position = [0.25, 0.965, 0.5, 0.03];
 
 %% Save figure
-output_file = fullfile(script_root, 'VM_Spectrum_Comparison.png');
+output_file = fullfile(script_root, 'Vm_Spectrum_Comparison.png');
 exportgraphics(fig, output_file, 'Resolution', 150);
 fprintf('Figure saved: %s\n', output_file);
 

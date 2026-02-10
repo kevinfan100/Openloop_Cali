@@ -1,7 +1,7 @@
 # Openloop_cali 專案規範
 
 六極電磁致動器 (hexapole electromagnetic actuator) 開迴路頻率響應校準。
-Signal chain: DAC → Amplifier (k_A) → Coil → Magnetic Flux → Hall Sensor → VM
+Signal chain: DAC → Amplifier (k_A) → Coil → Magnetic Flux → Hall Sensor → Vm
 Model: H(s) = A₂/(s²+A₁s+A₂) · B — 二階過阻尼，bandwidth ~200Hz
 
 ## 專案架構
@@ -14,13 +14,14 @@ configs/
   Hung_config.m         ← 只寫差異 (~15 行覆寫)
   Hung_noring_config.m
   NTU_config.m
-  NTU_t_config.m        ← NTU tip sensor (DA ch2 → VM ch3)
-  NTU_s_config.m        ← NTU surface sensor (DA ch2 → VM ch2)
+  NTU_t_config.m        ← NTU tip sensor (DA ch2 → Vm ch3)
+  NTU_s_config.m        ← NTU surface sensor (DA ch2 → Vm ch2)
+  Sweep_config.m        ← UI 自動掃頻 template (15 點頻率表)
   config_template.m     ← 新實驗 template (有註解說明)
 pipeline/
   step_read.m           ← 讀取 .dat + DAC 轉換 + L1 sanity check
   step_steady_state.m   ← 穩態檢測 (conservative，低頻有 fallback)
-  step_fft.m            ← FFT + THD + CSV 輸出
+  step_fft.m            ← FFT + THD + CSV 輸出 (super-period 精確截斷)
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
   step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoRing→NTU→NTU_t→NTU_s)
@@ -31,6 +32,7 @@ functions/              ← 核心演算法 (保留不動)
   apply_plot_style.m    ← 統一 style 工具
   create_top_legend.m   ← 頂端水平 legend 工具
   get_experiment_colors.m ← 固定顏色方案
+  compute_super_period.m ← Super-period 計算 (消除 FFT 頻譜洩漏)
 data/
   Hung/single_raw_data/       ← 19 個 .dat 檔
   Hung_noring/single_raw_data/
@@ -46,12 +48,13 @@ results/
   Comparison_Bode_TS.png               ← NTU_t/NTU_s 正規化 Bode (自動偵測 TS pair)
   Comparison_Bode_dB.png               ← Bode 比較圖 (原始 dB)
   Comparison_Bode_Linear.png           ← Bode 比較圖 (原始 linear)
-  Comparison_VM_Spectrum.png           ← VM 頻譜比較圖
+  Comparison_Vm_Spectrum.png           ← Vm 頻譜比較圖
   Comparison_Lissajous.png             ← Lissajous 比較圖
   Comparison_Ratio.png                 ← 通道比值比較圖
   Comparison_CrossChannel.png          ← 跨通道時域散射圖
-  Comparison_TS_Lissajous_{freqs}.png  ← TS VM/I 疊圖 (tip+surface per freq)
-  Comparison_TS_TimeDomain_{freqs}.png ← TS 時域疊圖 (tip+surface per freq)
+  Comparison_TS_Lissajous_{freqs}.png            ← TS Vm/I 疊圖 (tip+surface per freq)
+  Comparison_TS_Lissajous_Normalized_{freqs}.png ← TS Vm/I 正規化疊圖 (去DC後 normalize)
+  Comparison_TS_TimeDomain_{freqs}.png           ← TS 時域疊圖 (tip+surface per freq)
 legacy/                       ← 舊腳本 (diagnose_*.m, fit_*.m 等)
 ```
 
@@ -64,18 +67,18 @@ run_analysis('Hung', 'fit');                           % 從 CSV fitting (不需
 run_analysis('Hung', 'fit', 'wc_Hz', 1);               % 覆寫 fitting 參數
 run_analysis('Hung', 'plot');                          % 從 fit_results.mat 或 CSV 畫圖
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare');                                       % Bode 比較 (預設)
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % VM 頻譜比較
+run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % Vm 頻譜比較
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
 run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
 
 % NTU_ts 雙通道分析 (tip vs surface)
-run_analysis('NTU_t', 'fft');                                                                         % tip sensor (VM ch3)
-run_analysis('NTU_s', 'fft');                                                                         % surface sensor (VM ch2)
+run_analysis('NTU_t', 'fft');                                                                         % tip sensor (Vm ch3)
+run_analysis('NTU_s', 'fft');                                                                         % surface sensor (Vm ch2)
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', false);                                     % Bode dB 疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', false, 'Scale', 'linear');                   % Bode linear 疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ratio');                                        % 比值圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'cross_channel', 'Frequencies', [500,1000,2000]); % 跨通道散射
-run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);   % TS VM/I 疊圖
+run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);   % TS Vm/I 疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_timedomain', 'Frequencies', [10,100,1000]);  % TS 時域疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', true);                                      % TS 正規化 Bode → _TS.png
 ```
@@ -106,9 +109,13 @@ run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', true);                 
 - `check_points`: `min(25, period_samples)` — 防高頻重複
 - 低頻 fallback: 數據不足時用最後幾個週期
 
-### 1.3 FFT
-- `H(jω) = VM_fft(f_bin) / DA_fft(f_bin)` — DA 用激勵通道，VM 用分析通道
-- 整數週期截斷，不加窗
+### 1.3 FFT (Super-Period 精確截斷)
+- `H(jω) = Vm_fft(f_bin) / DA_fft(f_bin)` — DA 用激勵通道，Vm 用分析通道
+- **Super-period 截斷**: 使用 `compute_super_period(freq, fs)` 計算包含整數週期的最小整數 samples
+  - 公式: `min_periods = freq / gcd(fs, freq)`, `super_period = min_periods × fs / freq`
+  - 例: 1200 Hz → super_period=50 samples (3 週期)，消除 `round(fs/freq)=17` 的 2% 誤差
+  - **Fallback**: 若穩態段不夠長放不下 1 個 super-period (如 700/900/1400/1800 Hz in Hung)，退回 `round(fs/freq)` 近似截斷
+- 不加窗
 - THD: 2~10次諧波，上限 `0.8 × Nyquist`
 - `full` 模式 (預設) / `averaged` 模式 (可選)
 
@@ -218,8 +225,9 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 
 ### 數據處理注意
 4. **THD 值會因穩態窗口選擇而略有不同** — 這是預期行為，不影響 fitting
-5. **Magnitude 和 Phase 應與舊 CSV 完全一致（zero diff）** — 驗證基準
+5. **Super-period FFT 後，整除頻率維持 zero diff，非整除頻率有 0.3%~2% 改善** — 700/900/1400/1800 Hz 因穩態段太短會 fallback 到 round() 截斷，結果與舊版一致
 6. **Fitting 品質 (R²) 高度依賴 `wc_Hz`** — 使用錯誤的 wc 會導致 R² < 0 或不穩定極點
+6b. **Bode 比較圖 XLim/freq_max 自動從 CSV 取 max(freq)** — 不再寫死 2000，支援新 15 點頻率表 (max=3000)
 
 ### 繪圖注意
 7. **`exportgraphics` 可能顯示 "axes toolbar" 警告** — 純外觀問題，不是錯誤
@@ -228,17 +236,18 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 10. **`subplot()` 呼叫會重建 axes** — 手動調整 Position 後再呼叫 `subplot(1,n,k)` 會銷毀已繪製內容；改用 `ax_handles = gobjects(1,n)` 存 handle，之後用 handle 操作
 11. **Legend 手動定位流程** — 必須先 `drawnow`，再讀取 `lgd.Position` 取得實際寬高，再計算置中位置 `[0.5-w/2, y, w, h]`
 12. **正規化 Bode 的 DisplayName 格式** — `sprintf('%s (H(0.1)=%.4f)', display_name, H_ref)`，legend 放 southwest
+12b. **TS Lissajous 正規化必須先去 DC** — Vm 和 Current 都有 DC offset，直接除以 `max(abs)` 會被 DC 壓縮；正確做法: 先 `x - mean(x)` 再 `/ max(abs(...))`
 
 ### Git / 工作流程規則
 13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
 14. **每輪討論或更動後必須更新 CLAUDE.md** — 對專案架構、規則、參數、注意事項的任何新理解或變更，都要反映到 CLAUDE.md 中。CLAUDE.md 是專案的 single source of truth，必須始終保持最新。
 
 ### 已整合進 Pipeline 的功能
-15. **VM 頻譜比較** — 已整合為 `step_compare` 的 `'Type','spectrum'` 模式（原 `legacy/plot_vm_spectrum.m`）
-16. **Lissajous / VM vs Current** — 已整合為 `step_compare` 的 `'Type','lissajous'` 模式（原 `legacy/plot_vm_vs_current.m`）
+15. **Vm 頻譜比較** — 已整合為 `step_compare` 的 `'Type','spectrum'` 模式（原 `legacy/plot_Vm_spectrum.m`）
+16. **Lissajous / Vm vs Current** — 已整合為 `step_compare` 的 `'Type','lissajous'` 模式（原 `legacy/plot_Vm_vs_current.m`）
 17. **Fitting Residuals** — 已整合為 `step_plot` Tab 3
 18. **Dashboard 總覽** — 已整合為 `step_plot` 的 `generate_dashboard()` local function
-19. **TS Lissajous (VM/I)** — 已整合為 `step_compare` 的 `'Type','ts_lissajous'` 模式（tip+surface VM/I 疊圖）
+19. **TS Lissajous (Vm/I)** — 已整合為 `step_compare` 的 `'Type','ts_lissajous'` 模式（同時產生原始 + 正規化兩張圖；正規化先去 DC 再除以 max(abs)）
 20. **TS TimeDomain** — 已整合為 `step_compare` 的 `'Type','ts_timedomain'` 模式（tip+surface 時域疊圖）
 
 ### 尚未整合進 Pipeline 的功能
@@ -296,13 +305,14 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | Bode Data Only | [900,720] | 2×1 | log | off | sw, mag only |
 | Bode Model+Data | [900,720] | 2×1 | log | off | sw, mag only |
 | Bode Comparison | [900,720] | 2×1 | log | off | sw, mag only |
-| VM Spectrum | [1200,1200] | 3×1 | loglog | on | top horizontal |
+| Vm Spectrum | [1200,1200] | 3×1 | loglog | on | top horizontal |
 | Lissajous | [1800,600] | 1×3 | linear | on | top horizontal |
 | Dashboard | [1600,900] | 2×2 | mixed | on | per-subplot |
 | Fitting Residuals | [900,720] | 2×1 | semilogx | on | best, RMSE in legend |
 | Ratio | [900,720] | 2×1 | semilogx | on | best |
 | Cross-Channel | [1800,600] | 1×N | linear | on | per-subplot axis labels |
 | TS Lissajous | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2 |
+| TS Lissajous Norm | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2, 去DC+normalize |
 | TS TimeDomain | [1800,700] | 1×N | linear | on | top center manual, LineWidth=2 |
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
@@ -323,13 +333,13 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | A3 | Fitting Residuals | 固定 | fit_results → `Bode_{name}_Residuals.png` | ✅ step_plot Tab 3 |
 | A4 | Dashboard | 固定 | CSV + fit_results → `Dashboard_{name}.png` | ✅ step_plot |
 | A5 | Normalized Comparison | 按需 | 多實驗 CSV → `Comparison_Bode.png` | ✅ step_compare (bode) |
-| B1 | VM Spectrum | 可選 | .dat → `Comparison_VM_Spectrum.png` | ✅ step_compare (spectrum) |
-| B2 | VM Time-Domain | 可選 | 診斷 | 未實作 |
-| B3 | VM P-P vs Freq | 建議固定 | SNR 判斷 | 未實作 |
+| B1 | Vm Spectrum | 可選 | .dat → `Comparison_Vm_Spectrum.png` | ✅ step_compare (spectrum) |
+| B2 | Vm Time-Domain | 可選 | 診斷 | 未實作 |
+| B3 | Vm P-P vs Freq | 建議固定 | SNR 判斷 | 未實作 |
 | C1 | Lissajous | 可選 | .dat → `Comparison_Lissajous.png` | ✅ step_compare (lissajous) |
 | C2 | Ratio (通道比值) | 可選 | CSV → `Comparison_Ratio.png` | ✅ step_compare (ratio) |
 | C3 | Cross-Channel | 可選 | .dat → `Comparison_CrossChannel.png` | ✅ step_compare (cross_channel) |
-| C4 | TS Lissajous (VM/I) | 可選 | .dat → `Comparison_TS_Lissajous_{freqs}.png` | ✅ step_compare (ts_lissajous) |
+| C4 | TS Lissajous (Vm/I) | 可選 | .dat → `Comparison_TS_Lissajous_{freqs}.png` + `_Normalized_{freqs}.png` | ✅ step_compare (ts_lissajous) |
 | C5 | TS TimeDomain | 可選 | .dat → `Comparison_TS_TimeDomain_{freqs}.png` | ✅ step_compare (ts_timedomain) |
 | D1/D2 | Cross-channel | 未來 | 多通道 | 未實作 |
 
@@ -383,12 +393,16 @@ k_A = 0.3614;               % A/V (channel 2 amplifier gain)
 H_ref.Hung         = 0.0591;   % H(0.1Hz) [V/V]
 H_ref.NTU          = 0.0914;
 H_ref.Hung_noring  = 0.0733;
-H_ref.NTU_t        = 0.2419;   % tip sensor (VM ch3)
-H_ref.NTU_s        = 0.0972;   % surface sensor (VM ch2)
+H_ref.NTU_t        = 0.2419;   % tip sensor (Vm ch3)
+H_ref.NTU_s        = 0.0972;   % surface sensor (Vm ch2)
 
-% Frequencies (19 points, 所有實驗共用)
-frequencies = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
-               700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
+% Frequencies — 舊 19 點 (Hung/Hung_noring/NTU/NTU_ts)
+frequencies_19 = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
+                  700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
+
+% Frequencies — 新 15 點 (UI Freq Sweep, Sweep_config.m)
+frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
+                  1200, 1250, 1500, 1600, 2000, 2500, 3000];
 ```
 
 ## 驗證方法
@@ -402,9 +416,11 @@ frequencies = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
 6. **所有新檔案通過 `checkcode`** — 零警告
 7. **step_plot 新功能** — Fitting Residuals (Tab 3) + Dashboard 正確生成
 8. **step_compare 新模式** — `'Type','spectrum'` 和 `'Type','lissajous'` 正確讀取 .dat 並生成圖表
-9. **NTU_ts 雙通道** — NTU_t (tip, VM ch3) 和 NTU_s (surface, VM ch2) FFT + 比較圖皆正確生成
+9. **NTU_ts 雙通道** — NTU_t (tip, Vm ch3) 和 NTU_s (surface, Vm ch2) FFT + 比較圖皆正確生成
 10. **正規化 Bode TS** — NTU_t/NTU_s pair 自動存為 `Comparison_Bode_TS.png`，legend 含 H(0.1) 值
-11. **TS Lissajous + TS TimeDomain** — 新 compare type 正確生成 VM/I 疊圖和時域疊圖
+11. **TS Lissajous + TS TimeDomain** — 新 compare type 正確生成 Vm/I 疊圖和時域疊圖（ts_lissajous 同時產生原始+正規化版本）
+12. **Super-period FFT** — `compute_super_period` 正確性已驗證 (23 頻率皆為精確整數)，整除頻率 zero diff，非整除頻率 0.3%~2% 改善，fallback 正常運作
+13. **Bode freq_max 自動** — 比較圖 XLim 從 CSV max(freq) 自動推算，不再寫死 2000
 
 ### 完整驗證指令
 ```matlab

@@ -1,10 +1,10 @@
 %% ========================================================================
-%  VM vs Current 比較圖 (跨實驗：Hung / NTU / Hung No Ring)
+%  Vm vs Current 比較圖 (跨實驗：Hung / NTU / Hung No Ring)
 %  繪製 3 個頻率 (1, 10, 100 Hz) 的 Lissajous 橢圓
 % ========================================================================
 %
 % Purpose:
-%   比較三組實驗在不同頻率下的 VM-Current 關係
+%   比較三組實驗在不同頻率下的 Vm-Current 關係
 %   低頻 → 橢圓較扁（相位差小）
 %   高頻 → 橢圓較圓/寬（相位差大）
 %
@@ -20,7 +20,7 @@ clear; clc; close all;
 
 fprintf('\n');
 fprintf('========================================================================\n');
-fprintf('  VM vs Current Comparison (Hung / NTU / Hung No Ring)\n');
+fprintf('  Vm vs Current Comparison (Hung / NTU / Hung No Ring)\n');
 fprintf('========================================================================\n\n');
 
 %% Configuration
@@ -66,7 +66,7 @@ freq_suffixes = {'1hz', '10hz', '100hz'};
 colors = lines(3);  % MATLAB default color order
 
 %% Create figure
-fig = figure('Position', [100, 100, 1800, 600], 'Name', 'VM vs Current');
+fig = figure('Position', [100, 100, 1800, 600], 'Name', 'Vm vs Current');
 
 %% Process each experiment (one subplot per experiment)
 for exp_idx = 1:length(experiments)
@@ -96,7 +96,7 @@ for exp_idx = 1:length(experiments)
 
             % Step 2: Extract excitation channel
             da_raw = double(data.da(:, ch));
-            vm_ch2 = data.vm(:, ch);
+            Vm_ch2 = data.Vm(:, ch);
 
             % Step 3: DAC → Voltage → Current
             V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE_V / DAC_RESOLUTION);
@@ -104,7 +104,7 @@ for exp_idx = 1:length(experiments)
 
             % Step 4: Steady-state detection
             steady_info = detect_steady_state_relative(...
-                vm_ch2, target_freq, fs, ...
+                Vm_ch2, target_freq, fs, ...
                 'RelativeThreshold', RELATIVE_THRESHOLD, ...
                 'ConsecutivePeriods', 3, 'CheckPoints', 25, 'Verbose', false);
 
@@ -125,10 +125,10 @@ for exp_idx = 1:length(experiments)
             end
 
             I_ss = I(ss_start : ss_start + ss_length - 1);
-            VM_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+            Vm_ss = Vm_ch2(ss_start : ss_start + ss_length - 1);
 
-            % Step 6: Plot VM vs Current
-            plot(I_ss, VM_ss, '-', 'LineWidth', 3, 'Color', colors(freq_idx, :), ...
+            % Step 6: Plot Vm vs Current
+            plot(I_ss, Vm_ss, '-', 'LineWidth', 3, 'Color', colors(freq_idx, :), ...
                 'DisplayName', freq_labels{freq_idx});
 
             fprintf('OK (%d samples)\n', length(I_ss));
@@ -141,7 +141,7 @@ for exp_idx = 1:length(experiments)
     % Format subplot
     xlabel('Current (A)', 'FontWeight', 'bold', 'FontSize', 40);
     if exp_idx == 1
-        ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+        ylabel('Vm (V)', 'FontWeight', 'bold', 'FontSize', 40);
     end
     title(exp.name, 'FontWeight', 'bold', 'FontSize', 24);
 
@@ -175,7 +175,7 @@ for k = 1:3
 end
 
 %% Save figure
-output_file = fullfile(script_root, 'VM_vs_Current_Comparison.png');
+output_file = fullfile(script_root, 'Vm_vs_Current_Comparison.png');
 exportgraphics(fig, output_file, 'Resolution', 150);
 fprintf('Figure saved: %s\n', output_file);
 

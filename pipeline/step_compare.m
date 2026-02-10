@@ -16,8 +16,8 @@ function step_compare(experiment_names, varargin)
 %
 % Type:
 %   'bode'          - Bode comparison (default, normalized or raw)
-%   'spectrum'      - VM steady-state spectrum comparison
-%   'lissajous'     - VM vs Current Lissajous comparison
+%   'spectrum'      - Vm steady-state spectrum comparison
+%   'lissajous'     - Vm vs Current Lissajous comparison
 %   'ratio'         - Magnitude ratio + Phase difference (2 experiments)
 %   'cross_channel' - Cross-channel time-domain scatter (2 experiments)
 %   'all'           - All comparison types
@@ -147,8 +147,8 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
         fig_name = 'Bode Comparison (dB)';
     end
     fig = figure('Position', [100, 100, 900, 720], 'Name', fig_name);
-    freq_max = 2000;
-    log_ticks = 10.^(-1:3);
+    freq_max = max(cellfun(@(d) max(d.Frequency_Hz), exp_data));
+    log_ticks = 10.^(-1:ceil(log10(freq_max)));
     lw = 3.5;
     ms = 12;
 
@@ -286,7 +286,8 @@ function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, ver
 
     lw = 3.5;
     ms = 12;
-    log_ticks = 10.^(-1:3);
+    freq_max = max(common_freq);
+    log_ticks = 10.^(-1:ceil(log10(freq_max)));
 
     fig = figure('Position', [100, 100, 900, 720], 'Name', 'Magnitude Ratio');
 
@@ -298,7 +299,7 @@ function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, ver
     ylabel(ratio_label, 'FontWeight', 'bold', 'FontSize', 40);
     ylim([0, max(mag_ratio) * 1.15]);
     set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
-    set(gca, 'XScale', 'log', 'XLim', [0.1, 2000], 'XTick', log_ticks);
+    set(gca, 'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks);
     ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
     box on;
 
@@ -310,7 +311,7 @@ function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, ver
     ylabel('Phase diff (deg)', 'FontWeight', 'bold', 'FontSize', 40);
     ylim([-90, 1]);
     set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
-    set(gca, 'XScale', 'log', 'XLim', [0.1, 2000], 'XTick', log_ticks);
+    set(gca, 'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks);
     ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
     box on;
 
@@ -364,10 +365,10 @@ function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, s
             fs = data.sampling_rate;
             ch1 = config1.analysis_channel;
             ch2 = config2.analysis_channel;
-            vm_ch1 = data.vm(:, ch1);
-            vm_ch2 = data.vm(:, ch2);
+            Vm_ch1 = data.Vm(:, ch1);
+            Vm_ch2 = data.Vm(:, ch2);
 
-            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+            steady_info = detect_steady_state_relative(Vm_ch1, target_freq, fs, ...
                 'RelativeThreshold', RELATIVE_THRESHOLD, ...
                 'ConsecutivePeriods', 3, ...
                 'CheckPoints', min(25, round(fs/target_freq)), ...
@@ -380,17 +381,25 @@ function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, s
             end
 
             ss_start = steady_info.index;
-            period_samples = steady_info.period_samples;
-            ss_length = NUM_PERIODS * period_samples;
-            if ss_start + ss_length - 1 > length(vm_ch1)
-                ss_length = floor((length(vm_ch1) - ss_start + 1) / period_samples) * period_samples;
+            [super_period, min_per] = compute_super_period(target_freq, fs);
+            n_super = max(1, ceil(NUM_PERIODS / min_per));
+            ss_length = n_super * super_period;
+            avail = length(Vm_ch1) - ss_start + 1;
+            if ss_length > avail
+                avail_super = floor(avail / super_period);
+                if avail_super > 0
+                    ss_length = avail_super * super_period;
+                else
+                    approx_period = round(fs / target_freq);
+                    ss_length = floor(avail / approx_period) * approx_period;
+                end
             end
-            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
-            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+            Vm1_ss = Vm_ch1(ss_start : ss_start + ss_length - 1);
+            Vm2_ss = Vm_ch2(ss_start : ss_start + ss_length - 1);
 
-            plot(VM1_ss, VM2_ss, '-', 'LineWidth', 2, 'Color', [0, 0, 0]);
+            plot(Vm1_ss, Vm2_ss, '-', 'LineWidth', 2, 'Color', [0, 0, 0]);
 
-            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(VM1_ss)); end
+            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(Vm1_ss)); end
         catch ME
             if verbose, fprintf('  %.0f Hz: ERROR: %s\n', target_freq, ME.message); end
         end
@@ -414,7 +423,7 @@ function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, s
     end
 end
 
-%% ===== TS Lissajous (VM vs Current, tip & surface overlay) =====
+%% ===== TS Lissajous (Vm vs Current, tip & surface overlay) =====
 function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose)
     if n_exp ~= 2
         if verbose, fprintf('TS Lissajous requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
@@ -438,6 +447,7 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
 
     all_xlim = zeros(n_freq, 2);
     all_ylim = zeros(n_freq, 2);
+    stored_data = cell(n_freq, 1);
 
     for freq_idx = 1:n_freq
         target_freq = plot_freqs(freq_idx);
@@ -464,12 +474,12 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
             V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE / DAC_RES);
             I = k_A * V_dac;
 
-            % VM for both channels
-            vm_ch1 = data.vm(:, ch1);
-            vm_ch2 = data.vm(:, ch2);
+            % Vm for both channels
+            Vm_ch1 = data.Vm(:, ch1);
+            Vm_ch2 = data.Vm(:, ch2);
 
             % Steady state detection on first channel
-            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+            steady_info = detect_steady_state_relative(Vm_ch1, target_freq, fs, ...
                 'RelativeThreshold', RELATIVE_THRESHOLD, ...
                 'ConsecutivePeriods', 3, ...
                 'CheckPoints', min(25, round(fs/target_freq)), ...
@@ -482,20 +492,30 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
             end
 
             ss_start = steady_info.index;
-            period_samples = steady_info.period_samples;
-            ss_length = NUM_PERIODS * period_samples;
-            if ss_start + ss_length - 1 > length(I)
-                ss_length = floor((length(I) - ss_start + 1) / period_samples) * period_samples;
+            [super_period, min_per] = compute_super_period(target_freq, fs);
+            n_super = max(1, ceil(NUM_PERIODS / min_per));
+            ss_length = n_super * super_period;
+            avail = length(I) - ss_start + 1;
+            if ss_length > avail
+                avail_super = floor(avail / super_period);
+                if avail_super > 0
+                    ss_length = avail_super * super_period;
+                else
+                    approx_period = round(fs / target_freq);
+                    ss_length = floor(avail / approx_period) * approx_period;
+                end
             end
             I_ss = I(ss_start : ss_start + ss_length - 1);
-            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
-            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+            Vm1_ss = Vm_ch1(ss_start : ss_start + ss_length - 1);
+            Vm2_ss = Vm_ch2(ss_start : ss_start + ss_length - 1);
 
             % Plot both channels (lines only, no markers)
-            plot(I_ss, VM1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
+            plot(I_ss, Vm1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
                 'DisplayName', c1.display_name);
-            plot(I_ss, VM2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
+            plot(I_ss, Vm2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
                 'DisplayName', c2.display_name);
+
+            stored_data{freq_idx} = struct('I_ss', I_ss, 'Vm1_ss', Vm1_ss, 'Vm2_ss', Vm2_ss);
 
             if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(I_ss)); end
         catch ME
@@ -505,7 +525,7 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
         % Format subplot
         xlabel('Current (A)', 'FontWeight', 'bold', 'FontSize', 40);
         if freq_idx == 1
-            ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+            ylabel('Vm (V)', 'FontWeight', 'bold', 'FontSize', 40);
         end
         title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
         set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
@@ -537,6 +557,65 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
         out_file = fullfile(project_root, 'results', sprintf('Comparison_TS_Lissajous_%s.png', freq_str));
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+
+    %% Normalized version
+    fig2 = figure('Position', [100, 100, 1800, 650], 'Name', 'TS Lissajous (Normalized)');
+    all_xlim2 = zeros(n_freq, 2);
+
+    for freq_idx = 1:n_freq
+        subplot(1, n_freq, freq_idx);
+        hold on;
+
+        if isempty(stored_data{freq_idx})
+            title(sprintf('%.0f Hz', plot_freqs(freq_idx)), 'FontWeight', 'bold', 'FontSize', 24);
+            continue;
+        end
+
+        d = stored_data{freq_idx};
+        I_ac = d.I_ss - mean(d.I_ss);
+        Vm1_ac = d.Vm1_ss - mean(d.Vm1_ss);
+        Vm2_ac = d.Vm2_ss - mean(d.Vm2_ss);
+        I_norm = I_ac / max(abs(I_ac));
+        Vm1_norm = Vm1_ac / max(abs(Vm1_ac));
+        Vm2_norm = Vm2_ac / max(abs(Vm2_ac));
+
+        plot(I_norm, Vm1_norm, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
+            'DisplayName', c1.display_name);
+        plot(I_norm, Vm2_norm, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
+            'DisplayName', c2.display_name);
+
+        xlabel('Normalized Current', 'FontWeight', 'bold', 'FontSize', 40);
+        if freq_idx == 1
+            ylabel('Normalized Vm', 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        title(sprintf('%.0f Hz', plot_freqs(freq_idx)), 'FontWeight', 'bold', 'FontSize', 24);
+        set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+        ax2 = gca; ax2.XAxis.LineWidth = 3; ax2.YAxis.LineWidth = 3;
+        pbaspect([1 1 1]);
+        box on; grid on;
+        all_xlim2(freq_idx, :) = xlim;
+    end
+
+    % Unify axes
+    global_xlim2 = [min(all_xlim2(:,1)), max(all_xlim2(:,2))];
+    for k = 1:n_freq
+        subplot(1, n_freq, k);
+        xlim(global_xlim2);
+        ylim([-1.1, 1.1]);
+    end
+
+    % Shared legend at top
+    ax_first2 = subplot(1, n_freq, 1);
+    lgd2 = legend(ax_first2, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22);
+    lgd2.Units = 'normalized';
+    drawnow;
+    lgd2.Position = [0.5 - lgd2.Position(3)/2, 0.92, lgd2.Position(3), lgd2.Position(4)];
+
+    if save_fig
+        out_file2 = fullfile(project_root, 'results', sprintf('Comparison_TS_Lissajous_Normalized_%s.png', freq_str));
+        exportgraphics(fig2, out_file2, 'Resolution', 150);
+        if verbose, fprintf('Saved: %s\n', out_file2); end
     end
 end
 
@@ -578,11 +657,11 @@ function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_
             ch1 = config1.analysis_channel;
             ch2 = config2.analysis_channel;
 
-            vm_ch1 = data.vm(:, ch1);
-            vm_ch2 = data.vm(:, ch2);
+            Vm_ch1 = data.Vm(:, ch1);
+            Vm_ch2 = data.Vm(:, ch2);
 
             % Steady state detection
-            steady_info = detect_steady_state_relative(vm_ch1, target_freq, fs, ...
+            steady_info = detect_steady_state_relative(Vm_ch1, target_freq, fs, ...
                 'RelativeThreshold', RELATIVE_THRESHOLD, ...
                 'ConsecutivePeriods', 3, ...
                 'CheckPoints', min(25, round(fs/target_freq)), ...
@@ -595,23 +674,31 @@ function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_
             end
 
             ss_start = steady_info.index;
-            period_samples = steady_info.period_samples;
-            ss_length = NUM_PERIODS * period_samples;
-            if ss_start + ss_length - 1 > length(vm_ch1)
-                ss_length = floor((length(vm_ch1) - ss_start + 1) / period_samples) * period_samples;
+            [super_period, min_per] = compute_super_period(target_freq, fs);
+            n_super = max(1, ceil(NUM_PERIODS / min_per));
+            ss_length = n_super * super_period;
+            avail = length(Vm_ch1) - ss_start + 1;
+            if ss_length > avail
+                avail_super = floor(avail / super_period);
+                if avail_super > 0
+                    ss_length = avail_super * super_period;
+                else
+                    approx_period = round(fs / target_freq);
+                    ss_length = floor(avail / approx_period) * approx_period;
+                end
             end
-            VM1_ss = vm_ch1(ss_start : ss_start + ss_length - 1);
-            VM2_ss = vm_ch2(ss_start : ss_start + ss_length - 1);
+            Vm1_ss = Vm_ch1(ss_start : ss_start + ss_length - 1);
+            Vm2_ss = Vm_ch2(ss_start : ss_start + ss_length - 1);
 
             % Time axis in ms
-            t_ms = (0:length(VM1_ss)-1) / fs * 1000;
+            t_ms = (0:length(Vm1_ss)-1) / fs * 1000;
 
-            plot(t_ms, VM1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
+            plot(t_ms, Vm1_ss, '-', 'Color', c1.rgb, 'LineWidth', 2, ...
                 'DisplayName', c1.display_name);
-            plot(t_ms, VM2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
+            plot(t_ms, Vm2_ss, '-', 'Color', c2.rgb, 'LineWidth', 2, ...
                 'DisplayName', c2.display_name);
 
-            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(VM1_ss)); end
+            if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(Vm1_ss)); end
         catch ME
             if verbose, fprintf('  %.0f Hz: ERROR: %s\n', target_freq, ME.message); end
         end
@@ -621,7 +708,7 @@ function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_
             xlabel('Time (ms)', 'FontWeight', 'bold', 'FontSize', 40);
         end
         if freq_idx == 1
-            ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+            ylabel('Vm (V)', 'FontWeight', 'bold', 'FontSize', 40);
         end
         title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
         set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
@@ -650,13 +737,13 @@ function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_
     end
 end
 
-%% ===== VM Spectrum Comparison =====
+%% ===== Vm Spectrum Comparison =====
 function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, save_fig, verbose)
     NUM_PERIODS = 3;
     RELATIVE_THRESHOLD = 0.002;
     freq_colors = lines(length(plot_freqs));
 
-    fig = figure('Position', [100, 100, 1200, 1200], 'Name', 'VM Spectrum Comparison');
+    fig = figure('Position', [100, 100, 1200, 1200], 'Name', 'Vm Spectrum Comparison');
 
     for exp_idx = 1:n_exp
         name = ordered_names{exp_idx};
@@ -680,9 +767,9 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
             try
                 data = read_hsdata(dat_file);
                 fs = data.sampling_rate;
-                vm_ch = data.vm(:, analysis_ch);
+                Vm_ch = data.Vm(:, analysis_ch);
 
-                steady_info = detect_steady_state_relative(vm_ch, target_freq, fs, ...
+                steady_info = detect_steady_state_relative(Vm_ch, target_freq, fs, ...
                     'RelativeThreshold', RELATIVE_THRESHOLD, ...
                     'ConsecutivePeriods', 3, ...
                     'CheckPoints', min(25, round(fs/target_freq)), ...
@@ -694,16 +781,24 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
                 end
 
                 ss_start = steady_info.index;
-                period_samples = steady_info.period_samples;
-                ss_length = NUM_PERIODS * period_samples;
-                if ss_start + ss_length - 1 > length(vm_ch)
-                    ss_length = floor((length(vm_ch) - ss_start + 1) / period_samples) * period_samples;
+                [super_period, min_per] = compute_super_period(target_freq, fs);
+                n_super = max(1, ceil(NUM_PERIODS / min_per));
+                ss_length = n_super * super_period;
+                avail = length(Vm_ch) - ss_start + 1;
+                if ss_length > avail
+                    avail_super = floor(avail / super_period);
+                    if avail_super > 0
+                        ss_length = avail_super * super_period;
+                    else
+                        approx_period = round(fs / target_freq);
+                        ss_length = floor(avail / approx_period) * approx_period;
+                    end
                 end
-                VM_ss = vm_ch(ss_start : ss_start + ss_length - 1);
+                Vm_ss = Vm_ch(ss_start : ss_start + ss_length - 1);
 
-                N = length(VM_ss);
-                VM_fft = fft(VM_ss);
-                amp = abs(VM_fft(1:floor(N/2)+1)) / N * 2;
+                N = length(Vm_ss);
+                Vm_fft = fft(Vm_ss);
+                amp = abs(Vm_fft(1:floor(N/2)+1)) / N * 2;
                 amp(1) = amp(1) / 2;
                 freq_axis = (0:floor(N/2)) * fs / N;
 
@@ -720,7 +815,7 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
         if exp_idx == n_exp
             xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         end
-        ylabel('|VM| (V)', 'FontWeight', 'bold', 'FontSize', 40);
+        ylabel('|Vm| (V)', 'FontWeight', 'bold', 'FontSize', 40);
         title(get_display_name(name), 'FontWeight', 'bold', 'FontSize', 24);
         set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
         set(gca, 'XScale', 'log', 'YScale', 'log');
@@ -735,7 +830,7 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
     lgd.Position = [0.25, 0.965, 0.5, 0.03];
 
     if save_fig
-        out_file = fullfile(project_root, 'results', 'Comparison_VM_Spectrum.png');
+        out_file = fullfile(project_root, 'results', 'Comparison_Vm_Spectrum.png');
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
@@ -751,7 +846,7 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
     DAC_RES = 65536;
     freq_colors = lines(length(plot_freqs));
 
-    fig = figure('Position', [100, 100, 1800, 600], 'Name', 'VM vs Current Comparison');
+    fig = figure('Position', [100, 100, 1800, 600], 'Name', 'Vm vs Current Comparison');
 
     all_ylim = zeros(n_exp, 2);
 
@@ -764,7 +859,7 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
         subplot(1, n_exp, exp_idx);
         hold on;
 
-        if verbose, fprintf('Lissajous: %s (VM ch%d, DA ch%d)\n', name, analysis_ch, excite_ch); end
+        if verbose, fprintf('Lissajous: %s (Vm ch%d, DA ch%d)\n', name, analysis_ch, excite_ch); end
 
         for freq_idx = 1:length(plot_freqs)
             target_freq = plot_freqs(freq_idx);
@@ -778,12 +873,12 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
             try
                 data = read_hsdata(dat_file);
                 fs = data.sampling_rate;
-                vm_ch = data.vm(:, analysis_ch);
+                Vm_ch = data.Vm(:, analysis_ch);
                 da_raw = double(data.da(:, excite_ch));
                 V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE / DAC_RES);
                 I = k_A * V_dac;
 
-                steady_info = detect_steady_state_relative(vm_ch, target_freq, fs, ...
+                steady_info = detect_steady_state_relative(Vm_ch, target_freq, fs, ...
                     'RelativeThreshold', RELATIVE_THRESHOLD, ...
                     'ConsecutivePeriods', 3, ...
                     'CheckPoints', min(25, round(fs/target_freq)), ...
@@ -795,15 +890,23 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
                 end
 
                 ss_start = steady_info.index;
-                period_samples = steady_info.period_samples;
-                ss_length = NUM_PERIODS * period_samples;
-                if ss_start + ss_length - 1 > length(I)
-                    ss_length = floor((length(I) - ss_start + 1) / period_samples) * period_samples;
+                [super_period, min_per] = compute_super_period(target_freq, fs);
+                n_super = max(1, ceil(NUM_PERIODS / min_per));
+                ss_length = n_super * super_period;
+                avail = length(I) - ss_start + 1;
+                if ss_length > avail
+                    avail_super = floor(avail / super_period);
+                    if avail_super > 0
+                        ss_length = avail_super * super_period;
+                    else
+                        approx_period = round(fs / target_freq);
+                        ss_length = floor(avail / approx_period) * approx_period;
+                    end
                 end
                 I_ss = I(ss_start : ss_start + ss_length - 1);
-                VM_ss = vm_ch(ss_start : ss_start + ss_length - 1);
+                Vm_ss = Vm_ch(ss_start : ss_start + ss_length - 1);
 
-                plot(I_ss, VM_ss, '-', 'LineWidth', 3, 'Color', freq_colors(freq_idx, :), ...
+                plot(I_ss, Vm_ss, '-', 'LineWidth', 3, 'Color', freq_colors(freq_idx, :), ...
                     'DisplayName', sprintf('%.0f Hz', target_freq));
 
                 if verbose, fprintf('  %.0f Hz: OK (%d samples)\n', target_freq, length(I_ss)); end
@@ -815,7 +918,7 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
         % Format subplot
         xlabel('Current (A)', 'FontWeight', 'bold', 'FontSize', 40);
         if exp_idx == 1
-            ylabel('VM (V)', 'FontWeight', 'bold', 'FontSize', 40);
+            ylabel('Vm (V)', 'FontWeight', 'bold', 'FontSize', 40);
         end
         title(get_display_name(name), 'FontWeight', 'bold', 'FontSize', 24);
         set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
