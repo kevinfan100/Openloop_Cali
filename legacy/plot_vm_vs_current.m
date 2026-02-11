@@ -1,5 +1,5 @@
 %% ========================================================================
-%  Vm vs Current 比較圖 (跨實驗：Hung / NTU / Hung No Ring)
+%  Vm vs Current 比較圖 (跨實驗：Hung / NTU / Hung No Washer)
 %  繪製 3 個頻率 (1, 10, 100 Hz) 的 Lissajous 橢圓
 % ========================================================================
 %
@@ -11,7 +11,7 @@
 % Data Sources:
 %   Hung:          Hung_tweezer/single_raw_data/Hung_single_{freq}.dat
 %   NTU:           NTU_tweezer/single_raw_data/NTU_single_{freq}.dat
-%   Hung (No Ring): Hung_tweezer/single_noring_raw_data/Hung_single_noring_{freq}.dat
+%   Hung (No Washer): Hung_tweezer/single_no_washer_raw_data/Hung_single_no_washer_{freq}.dat
 %
 % Author: Claude Code
 % Date: 2026-02-06
@@ -20,7 +20,7 @@ clear; clc; close all;
 
 fprintf('\n');
 fprintf('========================================================================\n');
-fprintf('  Vm vs Current Comparison (Hung / NTU / Hung No Ring)\n');
+fprintf('  Vm vs Current Comparison (Hung / NTU / Hung No Washer)\n');
 fprintf('========================================================================\n\n');
 
 %% Configuration
@@ -51,9 +51,9 @@ experiments(1).name = 'Hung';
 experiments(1).folder = fullfile(script_root, 'Hung_tweezer', 'single_raw_data');
 experiments(1).prefix = 'Hung_single_';
 
-experiments(2).name = 'Hung (No Ring)';
-experiments(2).folder = fullfile(script_root, 'Hung_tweezer', 'single_noring_raw_data');
-experiments(2).prefix = 'Hung_single_noring_';
+experiments(2).name = 'Hung (No Washer)';
+experiments(2).folder = fullfile(script_root, 'Hung_tweezer', 'single_no_washer_raw_data');
+experiments(2).prefix = 'Hung_single_no_washer_';
 
 experiments(3).name = 'NTU';
 experiments(3).folder = fullfile(script_root, 'NTU_tweezer', 'single_raw_data');

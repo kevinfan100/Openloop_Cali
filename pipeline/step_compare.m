@@ -2,31 +2,37 @@ function step_compare(experiment_names, varargin)
 %STEP_COMPARE 多實驗比較圖
 %
 % Usage:
-%   step_compare({'Hung', 'Hung_noring', 'NTU'})
+%   step_compare({'Hung', 'Hung_no_washer', 'NTU'})
 %   step_compare({'Hung', 'NTU'}, 'Type', 'bode')
-%   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'spectrum', 'Frequencies', [1, 10, 100])
-%   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'lissajous', 'Frequencies', [1, 10, 100])
+%   step_compare({'Hung', 'Hung_no_washer', 'NTU'}, 'Type', 'spectrum', 'Frequencies', [1, 10, 100])
+%   step_compare({'Hung', 'Hung_no_washer', 'NTU'}, 'Type', 'lissajous', 'Frequencies', [1, 10, 100])
 %   step_compare({'NTU_t', 'NTU_s'}, 'Normalize', false)
 %   step_compare({'NTU_t', 'NTU_s'}, 'Type', 'ratio')
 %   step_compare({'NTU_t', 'NTU_s'}, 'Type', 'cross_channel', 'Frequencies', [500, 1000, 2000])
-%   step_compare({'Hung', 'Hung_noring', 'NTU'}, 'Type', 'all', 'Frequencies', [1, 10, 100])
+%   step_compare({'Hung', 'Hung_no_washer', 'NTU'}, 'Type', 'all', 'Frequencies', [1, 10, 100])
+%   step_compare({'Hung_no_washer','Hung_spring_washer','Hung'}, 'compare', 'KeepOrder', true, 'Tag', 'Hung')
+%   step_compare({'Hung_no_washer','Hung_spring_washer','Hung'}, 'Type', 'lissajous_freq', ...
+%       'Frequencies', [1,10,100], 'KeepOrder', true, 'Tag', 'Hung')
 %
 % Input:
 %   experiment_names - cell array of experiment names
 %
 % Type:
-%   'bode'          - Bode comparison (default, normalized or raw)
-%   'spectrum'      - Vm steady-state spectrum comparison
-%   'lissajous'     - Vm vs Current Lissajous comparison
-%   'ratio'         - Magnitude ratio + Phase difference (2 experiments)
-%   'cross_channel' - Cross-channel time-domain scatter (2 experiments)
-%   'all'           - All comparison types
+%   'bode'           - Bode comparison (default, normalized or raw)
+%   'spectrum'       - Vm steady-state spectrum comparison
+%   'lissajous'      - Vm vs Current Lissajous comparison (subplots per experiment)
+%   'lissajous_freq' - Vm vs Current Lissajous by frequency (subplots per freq, experiments overlaid)
+%   'ratio'          - Magnitude ratio + Phase difference (2 experiments)
+%   'cross_channel'  - Cross-channel time-domain scatter (2 experiments)
+%   'all'            - All comparison types
 %
 % Options:
 %   'Normalize' - true (default): normalize to H(0.1Hz), false: raw values
 %   'Scale'     - 'dB' (default) or 'linear' (only when Normalize=false)
+%   'KeepOrder' - false (default): use fixed display order; true: keep input order
+%   'Tag'       - '' (default): append tag to output filenames (e.g. 'Hung' → _Hung.png)
 %
-% 順序固定: Hung → Hung(NoRing) → NTU → NTU_t → NTU_s
+% 預設順序: Hung → Hung(NoWasher) → Hung(SpringWasher) → NTU → NTU_t → NTU_s
 
     %% Parse options
     p = inputParser;
@@ -37,6 +43,8 @@ function step_compare(experiment_names, varargin)
     addParameter(p, 'Frequencies', [1, 10, 100], @isnumeric);
     addParameter(p, 'Normalize', true, @islogical);
     addParameter(p, 'Scale', 'dB', @ischar);
+    addParameter(p, 'KeepOrder', false, @islogical);
+    addParameter(p, 'Tag', '', @ischar);
     parse(p, varargin{:});
     verbose = p.Results.Verbose;
     save_fig = p.Results.SaveFigure;
@@ -44,6 +52,8 @@ function step_compare(experiment_names, varargin)
     plot_freqs = p.Results.Frequencies;
     do_normalize = p.Results.Normalize;
     scale_mode = lower(p.Results.Scale);
+    keep_order = p.Results.KeepOrder;
+    output_tag = p.Results.Tag;
 
     if verbose
         fprintf('\n========================================\n');
@@ -54,8 +64,12 @@ function step_compare(experiment_names, varargin)
     %% Get colors and markers
     colors = get_experiment_colors();
 
-    %% Fixed display order
-    ordered_names = order_experiments(experiment_names);
+    %% Display order
+    if keep_order
+        ordered_names = experiment_names;
+    else
+        ordered_names = order_experiments(experiment_names);
+    end
     n_exp = length(ordered_names);
     project_root = fileparts(fileparts(mfilename('fullpath')));
 
@@ -63,11 +77,13 @@ function step_compare(experiment_names, varargin)
     switch compare_type
         case 'bode'
             compare_bode(ordered_names, n_exp, colors, project_root, ...
-                do_normalize, scale_mode, save_fig, verbose);
+                do_normalize, scale_mode, save_fig, verbose, output_tag);
         case 'spectrum'
             compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         case 'lissajous'
-            compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
+        case 'lissajous_freq'
+            compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'ratio'
             compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
         case 'cross_channel'
@@ -78,16 +94,17 @@ function step_compare(experiment_names, varargin)
             compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         case 'all'
             compare_bode(ordered_names, n_exp, colors, project_root, ...
-                do_normalize, scale_mode, save_fig, verbose);
+                do_normalize, scale_mode, save_fig, verbose, output_tag);
             compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
-            compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
+            compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
             compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
             compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose);
             compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
             compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
         otherwise
             error('step_compare:unknown_type', ...
-                'Unknown Type: %s\nValid: bode, spectrum, lissajous, ratio, cross_channel, ts_lissajous, ts_timedomain, all', compare_type);
+                'Unknown Type: %s\nValid: bode, spectrum, lissajous, lissajous_freq, ratio, cross_channel, ts_lissajous, ts_timedomain, all', compare_type);
     end
 
     if verbose
@@ -97,7 +114,7 @@ end
 
 %% ===== Helper: fixed display order =====
 function ordered = order_experiments(experiment_names)
-    display_order = {'Hung'; 'Hung_noring'; 'NTU'; 'NTU_t'; 'NTU_s'};
+    display_order = {'Hung'; 'Hung_no_washer'; 'Hung_spring_washer'; 'NTU'; 'NTU_t'; 'NTU_s'};
     ordered = {};
     for k = 1:length(display_order)
         if any(strcmp(experiment_names, display_order{k}))
@@ -112,7 +129,7 @@ function ordered = order_experiments(experiment_names)
 end
 
 %% ===== Bode Comparison =====
-function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, scale_mode, save_fig, verbose)
+function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, scale_mode, save_fig, verbose, output_tag)
     %% Load CSV data
     exp_data = cell(1, n_exp);
     for i = 1:n_exp
@@ -230,9 +247,11 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
         out_folder = fullfile(project_root, 'results');
         if ~exist(out_folder, 'dir'), mkdir(out_folder); end
         if do_normalize
-            % TS pair → separate filename
+            % TS pair → separate filename; Tag → custom suffix
             is_ts = n_exp == 2 && any(strcmp(ordered_names, 'NTU_t')) && any(strcmp(ordered_names, 'NTU_s'));
-            if is_ts
+            if ~isempty(output_tag)
+                out_file = fullfile(out_folder, sprintf('Comparison_Bode_%s.png', output_tag));
+            elseif is_ts
                 out_file = fullfile(out_folder, 'Comparison_Bode_TS.png');
             else
                 out_file = fullfile(out_folder, 'Comparison_Bode.png');
@@ -837,7 +856,7 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
 end
 
 %% ===== Lissajous Comparison =====
-function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, save_fig, verbose)
+function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, save_fig, verbose, output_tag)
     NUM_PERIODS = 3;
     RELATIVE_THRESHOLD = 0.002;
     k_A = 0.3614;
@@ -941,7 +960,124 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
     lgd.Position = [0.3, 0.95, 0.4, 0.04];
 
     if save_fig
-        out_file = fullfile(project_root, 'results', 'Comparison_Lissajous.png');
+        if ~isempty(output_tag)
+            out_file = fullfile(project_root, 'results', sprintf('Comparison_Lissajous_%s.png', output_tag));
+        else
+            out_file = fullfile(project_root, 'results', 'Comparison_Lissajous.png');
+        end
+        exportgraphics(fig, out_file, 'Resolution', 150);
+        if verbose, fprintf('\nSaved: %s\n', out_file); end
+    end
+end
+
+%% ===== Lissajous by Frequency (experiments overlaid per subplot) =====
+function compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag)
+    NUM_PERIODS = 3;
+    RELATIVE_THRESHOLD = 0.002;
+    k_A = 0.3614;
+    DAC_ZERO = 32768;
+    DAC_RANGE = 20.0;
+    DAC_RES = 65536;
+
+    n_freq = length(plot_freqs);
+    fig = figure('Position', [100, 100, 1800, 600], 'Name', 'Lissajous by Frequency');
+
+    all_xlim = zeros(n_freq, 2);
+    all_ylim = zeros(n_freq, 2);
+
+    for freq_idx = 1:n_freq
+        target_freq = plot_freqs(freq_idx);
+        subplot(1, n_freq, freq_idx);
+        hold on;
+
+        for exp_idx = 1:n_exp
+            name = ordered_names{exp_idx};
+            config = load_experiment_config(name);
+            analysis_ch = config.analysis_channel;
+            excite_ch = config.excitation_channel;
+            c = colors.(name);
+
+            [dat_file, ~] = find_dat_file(config, target_freq);
+            if isempty(dat_file)
+                if verbose, fprintf('  %s @ %.0f Hz: NOT FOUND\n', name, target_freq); end
+                continue;
+            end
+
+            try
+                data = read_hsdata(dat_file);
+                fs = data.sampling_rate;
+                Vm_ch = data.Vm(:, analysis_ch);
+                da_raw = double(data.da(:, excite_ch));
+                V_dac = (da_raw - DAC_ZERO) * (DAC_RANGE / DAC_RES);
+                I = k_A * V_dac;
+
+                steady_info = detect_steady_state_relative(Vm_ch, target_freq, fs, ...
+                    'RelativeThreshold', RELATIVE_THRESHOLD, ...
+                    'ConsecutivePeriods', 3, ...
+                    'CheckPoints', min(25, round(fs/target_freq)), ...
+                    'Verbose', false);
+
+                if steady_info.index <= 0
+                    if verbose, fprintf('  %s @ %.0f Hz: NO STEADY STATE\n', name, target_freq); end
+                    continue;
+                end
+
+                ss_start = steady_info.index;
+                [super_period, min_per] = compute_super_period(target_freq, fs);
+                n_super = max(1, ceil(NUM_PERIODS / min_per));
+                ss_length = n_super * super_period;
+                avail = length(I) - ss_start + 1;
+                if ss_length > avail
+                    avail_super = floor(avail / super_period);
+                    if avail_super > 0
+                        ss_length = avail_super * super_period;
+                    else
+                        approx_period = round(fs / target_freq);
+                        ss_length = floor(avail / approx_period) * approx_period;
+                    end
+                end
+                I_ss = I(ss_start : ss_start + ss_length - 1);
+                Vm_ss = Vm_ch(ss_start : ss_start + ss_length - 1);
+
+                plot(I_ss, Vm_ss, '-', 'Color', c.rgb, 'LineWidth', 3, ...
+                    'DisplayName', c.display_name);
+
+                if verbose, fprintf('  %s @ %.0f Hz: OK (%d samples)\n', name, target_freq, length(I_ss)); end
+            catch ME
+                if verbose, fprintf('  %s @ %.0f Hz: ERROR: %s\n', name, target_freq, ME.message); end
+            end
+        end
+
+        % Format subplot
+        xlabel('Current (A)', 'FontWeight', 'bold', 'FontSize', 40);
+        if freq_idx == 1
+            ylabel('Vm (V)', 'FontWeight', 'bold', 'FontSize', 40);
+        end
+        title(sprintf('%.0f Hz', target_freq), 'FontWeight', 'bold', 'FontSize', 24);
+        set(gca, 'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2);
+        ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
+        pbaspect([1 1 1]);
+        box on; grid on;
+        all_xlim(freq_idx, :) = xlim;
+        all_ylim(freq_idx, :) = ylim;
+    end
+
+    % Shared legend at top (centered)
+    ax_first = subplot(1, n_freq, 1);
+    lgd = legend(ax_first, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22);
+    lgd.Units = 'normalized';
+    drawnow;
+    lgd.Position = [0.5 - lgd.Position(3)/2, 0.95, lgd.Position(3), lgd.Position(4)];
+
+    if save_fig
+        freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
+        if ~isempty(output_tag)
+            out_file = fullfile(project_root, 'results', ...
+                sprintf('Comparison_Lissajous_Freq_%s_%s.png', output_tag, freq_str));
+        else
+            out_file = fullfile(project_root, 'results', ...
+                sprintf('Comparison_Lissajous_Freq_%s.png', freq_str));
+        end
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end

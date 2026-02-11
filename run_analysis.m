@@ -7,7 +7,7 @@ function run_analysis(experiment, step, varargin)
 %   run_analysis('Hung', 'fit')                    % 自動載入 CSV
 %   run_analysis('Hung', 'fit', 'wc_Hz', 50)       % 覆寫參數
 %   run_analysis('Hung', 'plot')                   % 只畫圖
-%   run_analysis({'Hung','Hung_noring','NTU'}, 'compare')  % 多實驗比較
+%   run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare')  % 多實驗比較
 %
 % Steps:
 %   'all'     - read → steady_state → fft → fit → plot

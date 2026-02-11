@@ -1,5 +1,5 @@
 %% ========================================================================
-%  Vm Steady-State Spectrum Comparison (Hung / Hung No Ring / NTU)
+%  Vm Steady-State Spectrum Comparison (Hung / Hung No Washer / NTU)
 %  觀察各實驗在 1/10/100 Hz 下的頻域表現
 % ========================================================================
 %
@@ -9,13 +9,13 @@
 %
 % Layout:
 %   subplot(3,1,k) — 3 列垂直堆疊
-%   子圖順序：Hung → Hung (No Ring) → NTU
+%   子圖順序：Hung → Hung (No Washer) → NTU
 %   每個子圖內疊加 3 條線（1 Hz / 10 Hz / 100 Hz）
 %   共用水平圖例置於圖頂，xlabel 僅底圖
 %
 % Data Sources:
 %   Hung:          Hung_tweezer/single_raw_data/Hung_single_{freq}.dat
-%   Hung (No Ring): Hung_tweezer/single_noring_raw_data/Hung_single_noring_{freq}.dat
+%   Hung (No Washer): Hung_tweezer/single_no_washer_raw_data/Hung_single_no_washer_{freq}.dat
 %   NTU:           NTU_tweezer/single_raw_data/NTU_single_{freq}.dat
 %
 % Output:
@@ -28,7 +28,7 @@ clear; clc; close all;
 
 fprintf('\n');
 fprintf('========================================================================\n');
-fprintf('  Vm Spectrum Comparison (Hung / Hung No Ring / NTU)\n');
+fprintf('  Vm Spectrum Comparison (Hung / Hung No Washer / NTU)\n');
 fprintf('========================================================================\n\n');
 
 %% Configuration
@@ -45,16 +45,16 @@ freq_suffixes = {'1hz', '10hz', '100hz'};
 NUM_PERIODS = 3;
 RELATIVE_THRESHOLD = 0.002;  % 0.2%
 
-% Experiments configuration (Hung → Hung No Ring → NTU)
+% Experiments configuration (Hung → Hung No Washer → NTU)
 experiments = struct();
 
 experiments(1).name = 'Hung';
 experiments(1).folder = fullfile(script_root, 'Hung_tweezer', 'single_raw_data');
 experiments(1).prefix = 'Hung_single_';
 
-experiments(2).name = 'Hung (No Ring)';
-experiments(2).folder = fullfile(script_root, 'Hung_tweezer', 'single_noring_raw_data');
-experiments(2).prefix = 'Hung_single_noring_';
+experiments(2).name = 'Hung (No Washer)';
+experiments(2).folder = fullfile(script_root, 'Hung_tweezer', 'single_no_washer_raw_data');
+experiments(2).prefix = 'Hung_single_no_washer_';
 
 experiments(3).name = 'NTU';
 experiments(3).folder = fullfile(script_root, 'NTU_tweezer', 'single_raw_data');

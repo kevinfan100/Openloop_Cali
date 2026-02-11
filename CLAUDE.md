@@ -12,7 +12,7 @@ configs/
   default_config.m      ← 所有共用參數 (~90 行)
   build_data_files.m    ← 自動從 prefix + frequencies 生成 .dat 檔名
   Hung_config.m         ← 只寫差異 (~15 行覆寫)
-  Hung_noring_config.m
+  Hung_no_washer_config.m
   NTU_config.m
   NTU_t_config.m        ← NTU tip sensor (DA ch2 → Vm ch3)
   NTU_s_config.m        ← NTU surface sensor (DA ch2 → Vm ch2)
@@ -24,7 +24,7 @@ pipeline/
   step_fft.m            ← FFT + THD + CSV 輸出 (super-period 精確截斷)
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
-  step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoRing→NTU→NTU_t→NTU_s)
+  step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoWasher→NTU→NTU_t→NTU_s)
 functions/              ← 核心演算法 (保留不動)
   read_hsdata.m         ← binary reader (V1~V8 格式)
   detect_steady_state.m, detect_steady_state_relative.m
@@ -35,12 +35,12 @@ functions/              ← 核心演算法 (保留不動)
   compute_super_period.m ← Super-period 計算 (消除 FFT 頻譜洩漏)
 data/
   Hung/single_raw_data/       ← 19 個 .dat 檔
-  Hung_noring/single_raw_data/
+  Hung_no_washer/single_raw_data/
   NTU/single_raw_data/
   NTU_ts/single_raw_data/     ← 19 個 .dat 檔 (tip+surface 雙通道)
 results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
-  Hung_noring/
+  Hung_no_washer/
   NTU/
   NTU_t/                      ← tip sensor 結果
   NTU_s/                      ← surface sensor 結果
@@ -66,10 +66,10 @@ run_analysis('Hung', 'fft');                           % read→steady→fft (�
 run_analysis('Hung', 'fit');                           % 從 CSV fitting (不需重新讀 .dat)
 run_analysis('Hung', 'fit', 'wc_Hz', 1);               % 覆寫 fitting 參數
 run_analysis('Hung', 'plot');                          % 從 fit_results.mat 或 CSV 畫圖
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare');                                       % Bode 比較 (預設)
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % Vm 頻譜比較
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare');                                       % Bode 比較 (預設)
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % Vm 頻譜比較
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
 
 % NTU_ts 雙通道分析 (tip vs surface)
 run_analysis('NTU_t', 'fft');                                                                         % tip sensor (Vm ch3)
@@ -168,7 +168,7 @@ w(ω) = 1 / (1 + (ω²/ωc²))^p
 | 實驗 | wc_Hz | R² | 備註 |
 |------|-------|-----|------|
 | Hung | 1 | ~0.99 | 舊腳本預設 |
-| Hung_noring | 1 | ~0.99 | 同 Hung |
+| Hung_no_washer | 1 | ~0.99 | 同 Hung |
 | NTU | 10 | ~0.99 | 需要較高 wc |
 
 default_config 統一用 `wc_Hz=100`（保守值），使用者可透過覆寫取得更佳 fitting：
@@ -201,7 +201,7 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 ### 2.9 Exclude frequencies
 - CSV 保留所有頻率
 - Fitting 時根據 `config.fitting.exclude_frequencies` 排除
-- 各實驗預設排除：Hung=[0.1, 900]、NTU=[0.1]、NoRing=[0.1, 900]
+- 各實驗預設排除：Hung=[0.1, 900]、NTU=[0.1]、NoWasher=[0.1, 900]
 
 ---
 
@@ -287,7 +287,7 @@ MarkerFaceColor = 'none';
 ```matlab
 % 五組實驗
 Hung    = [0,0,1]   blue  'o'
-NoRing  = [0,0.6,0] green 'd'
+NoWasher  = [0,0.6,0] green 'd'
 NTU     = [1,0,0]   red   's'
 NTU_t   = [0,0,1]   blue  'o'   % V_{tip}
 NTU_s   = [1,0,0]   red   's'   % V_{surface}
@@ -317,7 +317,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
 ### 3.5 子圖規則
-- **Subplot 順序 ALWAYS: Hung → Hung(NoRing) → NTU → NTU_t → NTU_s** (Hung 系列相鄰)
+- **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → NTU → NTU_t → NTU_s** (Hung 系列相鄰)
 - **Legend 順序必須 match subplot 順序**
 - 多子圖: 共用水平 legend 放在圖頂
 - **xlabel 只放最底圖** — 上面的子圖不要重複
@@ -392,11 +392,11 @@ k_A = 0.3614;               % A/V (channel 2 amplifier gain)
 % Reference values (measured at 0.1 Hz)
 H_ref.Hung         = 0.0591;   % H(0.1Hz) [V/V]
 H_ref.NTU          = 0.0914;
-H_ref.Hung_noring  = 0.0733;
+H_ref.Hung_no_washer  = 0.0733;
 H_ref.NTU_t        = 0.2419;   % tip sensor (Vm ch3)
 H_ref.NTU_s        = 0.0972;   % surface sensor (Vm ch2)
 
-% Frequencies — 舊 19 點 (Hung/Hung_noring/NTU/NTU_ts)
+% Frequencies — 舊 19 點 (Hung/Hung_no_washer/NTU/NTU_ts)
 frequencies_19 = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
                   700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
 
@@ -425,11 +425,11 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 ### 完整驗證指令
 ```matlab
 run_analysis('Hung', 'all');
-run_analysis('Hung_noring', 'all');
+run_analysis('Hung_no_washer', 'all');
 run_analysis('NTU', 'all');
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare');
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
-run_analysis({'Hung','Hung_noring','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare');
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
+run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
 
 % NTU_ts 雙通道
 run_analysis('NTU_t', 'fft');
