@@ -79,29 +79,29 @@ function step_compare(experiment_names, varargin)
             compare_bode(ordered_names, n_exp, colors, project_root, ...
                 do_normalize, scale_mode, save_fig, verbose, output_tag);
         case 'spectrum'
-            compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'lissajous'
             compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'lissajous_freq'
             compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'ratio'
-            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
+            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose, output_tag);
         case 'cross_channel'
-            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose);
+            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'ts_lissajous'
-            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'ts_timedomain'
-            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         case 'all'
             compare_bode(ordered_names, n_exp, colors, project_root, ...
                 do_normalize, scale_mode, save_fig, verbose, output_tag);
-            compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_spectrum(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
             compare_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
             compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
-            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose);
-            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose);
-            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
-            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose);
+            compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose, output_tag);
+            compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose, output_tag);
+            compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
+            compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag);
         otherwise
             error('step_compare:unknown_type', ...
                 'Unknown Type: %s\nValid: bode, spectrum, lissajous, lissajous_freq, ratio, cross_channel, ts_lissajous, ts_timedomain, all', compare_type);
@@ -114,7 +114,9 @@ end
 
 %% ===== Helper: fixed display order =====
 function ordered = order_experiments(experiment_names)
-    display_order = {'Hung'; 'Hung_no_washer'; 'Hung_spring_washer'; 'NTU'; 'NTU_t'; 'NTU_s'; 'Hung_pair_2'; 'Hung_pair_3'};
+    display_order = {'Hung'; 'Hung_no_washer'; 'Hung_spring_washer'; 'Hung_single_yoke'; ...
+        'NTU'; 'NTU_t'; 'NTU_s'; ...
+        'Hung_pair_2'; 'Hung_pair_3'; 'NTU_pair_2'; 'NTU_pair_3'};
     ordered = {};
     for k = 1:length(display_order)
         if any(strcmp(experiment_names, display_order{k}))
@@ -163,14 +165,14 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
     else
         fig_name = 'Bode Comparison (dB)';
     end
-    fig = figure('Position', [100, 100, 900, 720], 'Name', fig_name);
+    fig = figure('Position', [100, 100, 1050, 820], 'Name', fig_name);
     freq_max = max(cellfun(@(d) max(d.Frequency_Hz), exp_data));
     log_ticks = 10.^(-1:ceil(log10(freq_max)));
     lw = 3.5;
     ms = 12;
 
-    % Magnitude
-    subplot(2, 1, 1);
+    % Magnitude — upper subplot with extra top margin
+    ax_mag_h = subplot(2, 1, 1);
     hold on;
     for i = 1:n_exp
         name = ordered_names{i};
@@ -234,40 +236,35 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
     ax = gca; ax.XAxis.LineWidth = 3; ax.YAxis.LineWidth = 3;
     box on;
 
+    % Adjust subplot spacing
+    pos1 = get(ax_mag_h, 'Position');
+    pos1(2) = pos1(2) + 0.02;          % lift magnitude subplot slightly
+    pos1(4) = pos1(4) - 0.02;
+    set(ax_mag_h, 'Position', pos1);
+
     % Legend
-    ax_mag = subplot(2, 1, 1);
     if do_normalize
-        legend(ax_mag, 'Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
+        legend(ax_mag_h, 'Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 22);
     else
-        legend(ax_mag, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22, ...
+        legend(ax_mag_h, 'Orientation', 'horizontal', 'FontWeight', 'bold', 'FontSize', 22, ...
             'Location', 'northoutside');
     end
 
     if save_fig
-        out_folder = fullfile(project_root, 'results');
-        if ~exist(out_folder, 'dir'), mkdir(out_folder); end
+        out_folder = get_compare_folder(project_root, output_tag);
         if do_normalize
-            % TS pair → separate filename; Tag → custom suffix
-            is_ts = n_exp == 2 && any(strcmp(ordered_names, 'NTU_t')) && any(strcmp(ordered_names, 'NTU_s'));
-            if ~isempty(output_tag)
-                out_file = fullfile(out_folder, sprintf('Comparison_Bode_%s.png', output_tag));
-            elseif is_ts
+            % TS pair → separate filename (when no tag)
+            is_ts = isempty(output_tag) && n_exp == 2 && ...
+                any(strcmp(ordered_names, 'NTU_t')) && any(strcmp(ordered_names, 'NTU_s'));
+            if is_ts
                 out_file = fullfile(out_folder, 'Comparison_Bode_TS.png');
             else
                 out_file = fullfile(out_folder, 'Comparison_Bode.png');
             end
         elseif strcmp(scale_mode, 'linear')
-            if ~isempty(output_tag)
-                out_file = fullfile(out_folder, sprintf('Comparison_Bode_Linear_%s.png', output_tag));
-            else
-                out_file = fullfile(out_folder, 'Comparison_Bode_Linear.png');
-            end
+            out_file = fullfile(out_folder, 'Comparison_Bode_Linear.png');
         else
-            if ~isempty(output_tag)
-                out_file = fullfile(out_folder, sprintf('Comparison_Bode_dB_%s.png', output_tag));
-            else
-                out_file = fullfile(out_folder, 'Comparison_Bode_dB.png');
-            end
+            out_file = fullfile(out_folder, 'Comparison_Bode_dB.png');
         end
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
@@ -275,7 +272,7 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
 end
 
 %% ===== Ratio Comparison =====
-function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose)
+function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, verbose, output_tag)
     if n_exp ~= 2
         if verbose, fprintf('Ratio requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
         return;
@@ -348,14 +345,15 @@ function compare_ratio(ordered_names, n_exp, colors, project_root, save_fig, ver
         'Location', 'northoutside');
 
     if save_fig
-        out_file = fullfile(project_root, 'results', 'Comparison_Ratio.png');
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, 'Comparison_Ratio.png');
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
 end
 
 %% ===== Cross-Channel Comparison =====
-function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose)
+function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, save_fig, verbose, output_tag)
     if n_exp ~= 2
         if verbose, fprintf('Cross-channel requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
         return;
@@ -444,14 +442,15 @@ function compare_cross_channel(ordered_names, n_exp, project_root, plot_freqs, s
     end
 
     if save_fig
-        out_file = fullfile(project_root, 'results', 'Comparison_CrossChannel.png');
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, 'Comparison_CrossChannel.png');
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
 end
 
 %% ===== TS Lissajous (Vm vs Current, tip & surface overlay) =====
-function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose)
+function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag)
     if n_exp ~= 2
         if verbose, fprintf('TS Lissajous requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
         return;
@@ -581,7 +580,8 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
 
     if save_fig
         freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
-        out_file = fullfile(project_root, 'results', sprintf('Comparison_TS_Lissajous_%s.png', freq_str));
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, sprintf('Comparison_TS_Lissajous_%s.png', freq_str));
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
@@ -640,14 +640,14 @@ function compare_ts_lissajous(ordered_names, n_exp, colors, project_root, plot_f
     lgd2.Position = [0.5 - lgd2.Position(3)/2, 0.92, lgd2.Position(3), lgd2.Position(4)];
 
     if save_fig
-        out_file2 = fullfile(project_root, 'results', sprintf('Comparison_TS_Lissajous_Normalized_%s.png', freq_str));
+        out_file2 = fullfile(out_folder, sprintf('Comparison_TS_Lissajous_Normalized_%s.png', freq_str));
         exportgraphics(fig2, out_file2, 'Resolution', 150);
         if verbose, fprintf('Saved: %s\n', out_file2); end
     end
 end
 
 %% ===== TS Time-Domain (tip & surface overlay vs time) =====
-function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose)
+function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_freqs, save_fig, verbose, output_tag)
     if n_exp ~= 2
         if verbose, fprintf('TS TimeDomain requires exactly 2 experiments, got %d. Skipping.\n', n_exp); end
         return;
@@ -758,14 +758,15 @@ function compare_ts_timedomain(ordered_names, n_exp, colors, project_root, plot_
 
     if save_fig
         freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
-        out_file = fullfile(project_root, 'results', sprintf('Comparison_TS_TimeDomain_%s.png', freq_str));
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, sprintf('Comparison_TS_TimeDomain_%s.png', freq_str));
         exportgraphics(fig, out_file, 'Resolution', 300);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
 end
 
 %% ===== Vm Spectrum Comparison =====
-function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, save_fig, verbose)
+function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, save_fig, verbose, output_tag)
     NUM_PERIODS = 3;
     RELATIVE_THRESHOLD = 0.002;
     freq_colors = lines(length(plot_freqs));
@@ -857,7 +858,8 @@ function compare_spectrum(ordered_names, n_exp, ~, project_root, plot_freqs, sav
     lgd.Position = [0.25, 0.965, 0.5, 0.03];
 
     if save_fig
-        out_file = fullfile(project_root, 'results', 'Comparison_Vm_Spectrum.png');
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, 'Comparison_Vm_Spectrum.png');
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
@@ -968,11 +970,8 @@ function compare_lissajous(ordered_names, n_exp, ~, project_root, plot_freqs, sa
     lgd.Position = [0.3, 0.95, 0.4, 0.04];
 
     if save_fig
-        if ~isempty(output_tag)
-            out_file = fullfile(project_root, 'results', sprintf('Comparison_Lissajous_%s.png', output_tag));
-        else
-            out_file = fullfile(project_root, 'results', 'Comparison_Lissajous.png');
-        end
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, 'Comparison_Lissajous.png');
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
@@ -1079,13 +1078,8 @@ function compare_lissajous_freq(ordered_names, n_exp, colors, project_root, plot
 
     if save_fig
         freq_str = strjoin(arrayfun(@(f) sprintf('%.0f', f), plot_freqs, 'UniformOutput', false), '_');
-        if ~isempty(output_tag)
-            out_file = fullfile(project_root, 'results', ...
-                sprintf('Comparison_Lissajous_Freq_%s_%s.png', output_tag, freq_str));
-        else
-            out_file = fullfile(project_root, 'results', ...
-                sprintf('Comparison_Lissajous_Freq_%s.png', freq_str));
-        end
+        out_folder = get_compare_folder(project_root, output_tag);
+        out_file = fullfile(out_folder, sprintf('Comparison_Lissajous_Freq_%s.png', freq_str));
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
     end
@@ -1118,4 +1112,14 @@ function dname = get_display_name(name)
     else
         dname = name;
     end
+end
+
+%% ===== Helper: output folder (Tag → subfolder) =====
+function out_folder = get_compare_folder(project_root, output_tag)
+    if ~isempty(output_tag)
+        out_folder = fullfile(project_root, 'results', output_tag);
+    else
+        out_folder = fullfile(project_root, 'results');
+    end
+    if ~exist(out_folder, 'dir'), mkdir(out_folder); end
 end

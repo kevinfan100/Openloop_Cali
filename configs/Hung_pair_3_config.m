@@ -8,7 +8,7 @@ function config = Hung_pair_3_config()
 
     %% 實驗識別
     config.experiment_name = 'Hung_pair_3';
-    config.display_name = 'V_{coupled}';
+    config.display_name = 'coupled';
     config.data_prefix = 'Hung_pair';
 
     %% 跨通道: Vm ch3 (coupled)

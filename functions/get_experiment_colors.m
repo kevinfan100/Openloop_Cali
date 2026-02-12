@@ -25,7 +25,7 @@ function colors = get_experiment_colors()
 
     colors.NTU.rgb = [1, 0, 0];
     colors.NTU.marker = 's';
-    colors.NTU.display_name = 'NTU';
+    colors.NTU.display_name = 'single';
 
     colors.NTU_t.rgb = [0, 0, 1];
     colors.NTU_t.marker = 'o';
@@ -35,11 +35,23 @@ function colors = get_experiment_colors()
     colors.NTU_s.marker = 's';
     colors.NTU_s.display_name = 'V_{surface}';
 
+    colors.Hung_single_yoke.rgb = [1, 0, 0];
+    colors.Hung_single_yoke.marker = 's';
+    colors.Hung_single_yoke.display_name = 'single yoke';
+
     colors.Hung_pair_2.rgb = [0, 0, 1];
     colors.Hung_pair_2.marker = 'o';
-    colors.Hung_pair_2.display_name = 'V_{excite}';
+    colors.Hung_pair_2.display_name = 'excite';
 
-    colors.Hung_pair_3.rgb = [1, 0, 0];
-    colors.Hung_pair_3.marker = 's';
-    colors.Hung_pair_3.display_name = 'V_{coupled}';
+    colors.Hung_pair_3.rgb = [0, 0.6, 0];
+    colors.Hung_pair_3.marker = 'd';
+    colors.Hung_pair_3.display_name = 'coupled';
+
+    colors.NTU_pair_2.rgb = [0, 0, 1];
+    colors.NTU_pair_2.marker = 'o';
+    colors.NTU_pair_2.display_name = 'excite';
+
+    colors.NTU_pair_3.rgb = [0, 0.6, 0];
+    colors.NTU_pair_3.marker = 'd';
+    colors.NTU_pair_3.display_name = 'coupled';
 end

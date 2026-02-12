@@ -8,7 +8,7 @@ function config = Hung_pair_2_config()
 
     %% 實驗識別
     config.experiment_name = 'Hung_pair_2';
-    config.display_name = 'V_{excite}';
+    config.display_name = 'excite';
     config.data_prefix = 'Hung_pair';
 
     %% 分析通道: Vm ch2 (excite)

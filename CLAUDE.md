@@ -13,11 +13,14 @@ configs/
   build_data_files.m    ← 自動從 prefix + frequencies 生成 .dat 檔名
   Hung_config.m         ← 只寫差異 (~15 行覆寫)
   Hung_no_washer_config.m
+  Hung_single_yoke_config.m  ← Hung single yoke (15 點, DA ch2 → Vm ch2)
   NTU_config.m
   NTU_t_config.m        ← NTU tip sensor (DA ch2 → Vm ch3)
   NTU_s_config.m        ← NTU surface sensor (DA ch2 → Vm ch2)
   Hung_pair_2_config.m  ← Hung pair 主通道 (DA ch2 → Vm ch2)
   Hung_pair_3_config.m  ← Hung pair 耦合通道 (DA ch2 → Vm ch3)
+  NTU_pair_2_config.m   ← NTU pair 主通道 (DA ch2 → Vm ch2, 15 點)
+  NTU_pair_3_config.m   ← NTU pair 耦合通道 (DA ch2 → Vm ch3, 15 點)
   Sweep_config.m        ← UI 自動掃頻 template (15 點頻率表)
   config_template.m     ← 新實驗 template (有註解說明)
 pipeline/
@@ -26,7 +29,7 @@ pipeline/
   step_fft.m            ← FFT + THD + CSV 輸出 (super-period 精確截斷)
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
-  step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoWasher→NTU→NTU_t→NTU_s)
+  step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (Tag → subfolder output)
 functions/              ← 核心演算法 (保留不動)
   read_hsdata.m         ← binary reader (V1~V8 格式, vectorized fread)
   detect_steady_state.m, detect_steady_state_relative.m
@@ -41,25 +44,24 @@ data/
   NTU/single_raw_data/
   NTU_ts/single_raw_data/     ← 19 個 .dat 檔 (tip+surface 雙通道)
   Hung_pair/pair_raw_data/   ← 19 個 .dat 檔 (V8, dual-channel excite+coupled)
+  NTU_pair/pair_raw_data/    ← 15 個 .dat 檔 (V8, dual-channel excite+coupled)
+  Hung_single_yoke/single_yoke_raw_data/ ← 15 個 .dat 檔 (V8, single yoke)
 results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
   Hung_no_washer/
+  Hung_single_yoke/           ← single yoke 結果
   NTU/
   NTU_t/                      ← tip sensor 結果
   NTU_s/                      ← surface sensor 結果
   Hung_pair_2/                ← excite channel 結果 (Vm ch2)
   Hung_pair_3/                ← coupled channel 結果 (Vm ch3)
-  Comparison_Bode.png                  ← Bode 比較圖 (正規化, legend 含 H(0.1))
-  Comparison_Bode_TS.png               ← NTU_t/NTU_s 正規化 Bode (自動偵測 TS pair)
-  Comparison_Bode_dB.png               ← Bode 比較圖 (原始 dB)
-  Comparison_Bode_Linear.png           ← Bode 比較圖 (原始 linear)
-  Comparison_Vm_Spectrum.png           ← Vm 頻譜比較圖
-  Comparison_Lissajous.png             ← Lissajous 比較圖
-  Comparison_Ratio.png                 ← 通道比值比較圖
-  Comparison_CrossChannel.png          ← 跨通道時域散射圖
-  Comparison_TS_Lissajous_{freqs}.png            ← TS Vm/I 疊圖 (tip+surface per freq)
-  Comparison_TS_Lissajous_Normalized_{freqs}.png ← TS Vm/I 正規化疊圖 (去DC後 normalize)
-  Comparison_TS_TimeDomain_{freqs}.png           ← TS 時域疊圖 (tip+surface per freq)
+  NTU_pair_2/                 ← NTU excite channel 結果 (Vm ch2)
+  NTU_pair_3/                 ← NTU coupled channel 結果 (Vm ch3)
+  Comparison_*.png                     ← 無 Tag 時的比較圖 (預設位置)
+  Hung_pair/Comparison_*.png           ← Hung pair 比較圖 (Tag='Hung_pair')
+  NTU_pair/Comparison_*.png            ← NTU pair 比較圖 (Tag='NTU_pair')
+  Hung_yoke/Comparison_*.png           ← Hung single_yoke vs pair 比較圖 (Tag='Hung_yoke')
+  NTU_yoke/Comparison_*.png            ← NTU single vs pair 比較圖 (Tag='NTU_yoke')
 legacy/                       ← 舊腳本 (diagnose_*.m, fit_*.m 等)
 ```
 
@@ -94,6 +96,20 @@ run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Tag'
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Scale', 'linear', 'Tag', 'Hung_pair'); % Bode linear
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'Hung_pair');            % 正規化 Bode
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'Hung_pair');              % 比值圖
+
+% NTU_pair 雙通道分析 (excite ch2 vs coupled ch3, 15 點頻率表)
+run_analysis('NTU_pair_2', 'fft');                                                                           % excite channel (Vm ch2)
+run_analysis('NTU_pair_3', 'fft');                                                                           % coupled channel (Vm ch3)
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', false, 'Tag', 'NTU_pair');                 % Bode dB → results/NTU_pair/
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_pair');                  % 正規化 Bode
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'NTU_pair');                    % 比值圖
+
+% Hung single yoke vs pair 比較 (Tag → results/Hung_yoke/)
+run_analysis({'Hung_single_yoke','Hung_pair_2','Hung_pair_3'}, 'compare', ...
+    'Normalize', true, 'KeepOrder', true, 'Tag', 'Hung_yoke');                                               % 正規化 Bode
+
+% NTU single vs pair 比較 (Tag → results/NTU_yoke/)
+run_analysis({'NTU','NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_yoke');            % 正規化 Bode
 ```
 
 ### Pipeline 各步驟 (step) 說明
@@ -253,6 +269,11 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 11. **Legend 手動定位流程** — 必須先 `drawnow`，再讀取 `lgd.Position` 取得實際寬高，再計算置中位置 `[0.5-w/2, y, w, h]`
 12. **正規化 Bode 的 DisplayName 格式** — `sprintf('%s (H(0.1)=%.4f)', display_name, H_ref)`，legend 放 southwest
 12b. **TS Lissajous 正規化必須先去 DC** — Vm 和 Current 都有 DC offset，直接除以 `max(abs)` 會被 DC 壓縮；正確做法: 先 `x - mean(x)` 再 `/ max(abs(...))`
+12c. **Tag → subfolder** — `step_compare` 的 `Tag` 參數控制輸出子資料夾：`Tag='Hung_pair'` → `results/Hung_pair/Comparison_*.png`；無 Tag → `results/Comparison_*.png`。檔名不再附加 tag 後綴
+12d. **pair display_name** — `excite` / `coupled`（無 `V_` 前綴），在 `get_experiment_colors.m` 和各 `*_config.m` 中定義
+12e. **NTU_pair 雙通道** — NTU_pair_2 (excite, Vm ch2) + NTU_pair_3 (coupled, Vm ch3)，共用 `data/NTU_pair/pair_raw_data/`，15 點頻率表
+12f. **NTU_pair 相位特徵** — excite Phase(0.1Hz)=-4.5° (無 180° 偏移)；coupled 有 200Hz 反共振 (notch + 500Hz phase jump +22°)；與 Hung_pair 不同 (excite 有 180° 偏移)
+12g. **角色統一配色** — pair/yoke 比較圖中 single=red 's', excite=blue 'o', coupled=green 'd'，Hung 和 NTU 系列一致。此配色與三組實驗比較 (Hung=blue, NoWasher=green, NTU=red) 無衝突
 
 ### Git / 工作流程規則
 13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
@@ -301,14 +322,19 @@ MarkerFaceColor = 'none';
 
 ### 3.3 固定顏色方案
 ```matlab
-% 七組實驗
-Hung        = [0,0,1]   blue  'o'
-NoWasher    = [0,0.6,0] green 'd'
-NTU         = [1,0,0]   red   's'
-NTU_t       = [0,0,1]   blue  'o'   % V_{tip}
-NTU_s       = [1,0,0]   red   's'   % V_{surface}
-Hung_pair_2 = [0,0,1]   blue  'o'   % V_{excite}
-Hung_pair_3 = [1,0,0]   red   's'   % V_{coupled}
+% 角色統一配色 (pair/yoke 比較圖)
+single           = [1,0,0]     red    's'   % NTU='single', Hung_single_yoke='single yoke'
+excite           = [0,0,1]     blue   'o'   % Hung_pair_2, NTU_pair_2
+coupled          = [0,0.6,0]   green  'd'   % Hung_pair_3, NTU_pair_3
+
+% 三組實驗比較 (Hung/NoWasher/NTU)
+Hung             = [0,0,1]     blue   'o'
+NoWasher         = [0,0.6,0]   green  'd'
+NTU              = [1,0,0]     red    's'   % display_name='single'
+
+% TS 雙通道
+NTU_t            = [0,0,1]     blue   'o'   % V_{tip}
+NTU_s            = [1,0,0]     red    's'   % V_{surface}
 
 % 6×6 通道
 P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
@@ -322,7 +348,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 |------|------|--------|---------|------|--------|
 | Bode Data Only | [900,720] | 2×1 | log | off | sw, mag only |
 | Bode Model+Data | [900,720] | 2×1 | log | off | sw, mag only |
-| Bode Comparison | [900,720] | 2×1 | log | off | sw, mag only |
+| Bode Comparison | [1050,820] | 2×1 | log | off | sw, mag only |
 | Vm Spectrum | [1200,1200] | 3×1 | loglog | on | top horizontal |
 | Lissajous | [1800,600] | 1×3 | linear | on | top horizontal |
 | Dashboard | [1600,900] | 2×2 | mixed | on | per-subplot |
@@ -335,7 +361,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
 ### 3.5 子圖規則
-- **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → NTU → NTU_t → NTU_s** (Hung 系列相鄰)
+- **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → Hung(SingleYoke) → NTU → NTU_t → NTU_s → Hung_pair_2 → Hung_pair_3 → NTU_pair_2 → NTU_pair_3**
 - **Legend 順序必須 match subplot 順序**
 - 多子圖: 共用水平 legend 放在圖頂
 - **xlabel 只放最底圖** — 上面的子圖不要重複
@@ -415,6 +441,9 @@ H_ref.NTU_t        = 0.2419;   % tip sensor (Vm ch3)
 H_ref.NTU_s        = 0.0972;   % surface sensor (Vm ch2)
 H_ref.Hung_pair_2  = 0.0295;   % excite channel (Vm ch2)
 H_ref.Hung_pair_3  = 0.0014;   % coupled channel (Vm ch3)
+H_ref.NTU_pair_2   = 0.1009;   % NTU excite channel (Vm ch2)
+H_ref.NTU_pair_3   = 0.0015;   % NTU coupled channel (Vm ch3)
+H_ref.Hung_single_yoke = 0.0313; % Hung single yoke (Vm ch2)
 
 % Frequencies — 舊 19 點 (Hung/Hung_no_washer/NTU/NTU_ts)
 frequencies_19 = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
@@ -443,6 +472,11 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 13. **Bode freq_max 自動** — 比較圖 XLim 從 CSV max(freq) 自動推算，不再寫死 2000
 14. **Vectorized read_hsdata** — fread-with-skip 產出與 per-record loop bit-identical（Hung + Hung_pair 皆 zero diff verified）
 15. **Hung_pair 雙通道** — Hung_pair_2 (excite, Vm ch2) 和 Hung_pair_3 (coupled, Vm ch3) FFT + 比較圖正確生成
+16. **NTU_pair 雙通道** — NTU_pair_2 (excite, Vm ch2) 和 NTU_pair_3 (coupled, Vm ch3) FFT + 比較圖正確生成 (15 點頻率表)
+17. **Hung_single_yoke** — single yoke FFT + 與 pair 比較圖正確生成 (15 點頻率表)
+18. **Tag subfolder output** — `step_compare` 的 `Tag` 參數改為存到 `results/<Tag>/` 子資料夾，不再加後綴到檔名
+19. **Display names** — pair 實驗圖例改為 `excite` / `coupled`（移除 `V_` 前綴）
+20. **角色統一配色** — single=red 's', excite=blue 'o', coupled=green 'd'，Hung/NTU 系列完全一致；NTU_yoke 3-way 比較正確生成
 
 ### 完整驗證指令
 ```matlab
@@ -470,4 +504,18 @@ run_analysis('Hung_pair_3', 'fft');
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Tag', 'Hung_pair');
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'Hung_pair');
 run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'Hung_pair');
+
+% NTU_pair 雙通道
+run_analysis('NTU_pair_2', 'fft');
+run_analysis('NTU_pair_3', 'fft');
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', false, 'Tag', 'NTU_pair');
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_pair');
+run_analysis({'NTU_pair_2','NTU_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'NTU_pair');
+
+% Hung single yoke vs pair
+run_analysis({'Hung_single_yoke','Hung_pair_2','Hung_pair_3'}, 'compare', ...
+    'Normalize', true, 'KeepOrder', true, 'Tag', 'Hung_yoke');
+
+% NTU single vs pair
+run_analysis({'NTU','NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_yoke');
 ```
