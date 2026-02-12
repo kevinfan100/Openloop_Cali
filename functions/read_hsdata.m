@@ -244,51 +244,70 @@ function data = read_hsdata(filename)
     % Calculate record count
     record_count = floor(data_size / record_size);
 
-    % Pre-allocate arrays
-    data.Vm = zeros(record_count, 6, 'single');
-    data.vd = zeros(record_count, 6, 'single');
-    data.da = zeros(record_count, 6, 'uint16');
+    % Vectorized data read — fread with skip (3~5 seeks total instead of 3~5 per record)
+    % skip = record_size - (count * sizeof(type))
     if version >= 5
-        data.debug = zeros(record_count, 10, 'single');  % V5/V6: 10 floats
-        data.adc_raw = zeros(record_count, 12, 'uint16');
+        % V5/V6/V7/V8: record_size=124
+        % Vm[6f32](24) + vd[6f32](24) + da[6u16](12) + debug[10f32](40) + adc_raw[12u16](24)
+        fseek(fid, header_size, 'bof');
+        data.Vm = fread(fid, [6, record_count], '6*float32=>single', 100)';
+
+        fseek(fid, header_size + 24, 'bof');
+        data.vd = fread(fid, [6, record_count], '6*float32=>single', 100)';
+
+        fseek(fid, header_size + 48, 'bof');
+        data.da = fread(fid, [6, record_count], '6*uint16=>uint16', 112)';
+
+        fseek(fid, header_size + 60, 'bof');
+        data.debug = fread(fid, [10, record_count], '10*float32=>single', 84)';
+
+        fseek(fid, header_size + 100, 'bof');
+        data.adc_raw = fread(fid, [12, record_count], '12*uint16=>uint16', 100)';
+
     elseif version >= 4
-        data.debug = zeros(record_count, 16, 'single');  % V4: 16 floats
-        data.adc_raw = zeros(record_count, 12, 'uint16');
+        % V4: record_size=148
+        % Vm[6f32](24) + vd[6f32](24) + da[6u16](12) + debug[16f32](64) + adc_raw[12u16](24)
+        fseek(fid, header_size, 'bof');
+        data.Vm = fread(fid, [6, record_count], '6*float32=>single', 124)';
+
+        fseek(fid, header_size + 24, 'bof');
+        data.vd = fread(fid, [6, record_count], '6*float32=>single', 124)';
+
+        fseek(fid, header_size + 48, 'bof');
+        data.da = fread(fid, [6, record_count], '6*uint16=>uint16', 136)';
+
+        fseek(fid, header_size + 60, 'bof');
+        data.debug = fread(fid, [16, record_count], '16*float32=>single', 84)';
+
+        fseek(fid, header_size + 124, 'bof');
+        data.adc_raw = fread(fid, [12, record_count], '12*uint16=>uint16', 124)';
+
     elseif version >= 2
-        data.debug = zeros(record_count, 16, 'single');  % V2/V3: 16 floats
-    end
+        % V2/V3: record_size=124
+        % Vm[6f32](24) + vd[6f32](24) + da[6u16](12) + debug[16f32](64)
+        fseek(fid, header_size, 'bof');
+        data.Vm = fread(fid, [6, record_count], '6*float32=>single', 100)';
 
-    % Read data (file pointer is already at correct position after header)
-    % If has_header, we're at byte 24 (V1/V2) or 48 (V3); if not, we're at byte 0
-    if ~has_header
-        fseek(fid, 0, 'bof');
-    end
-    % else: file pointer is already positioned after header
+        fseek(fid, header_size + 24, 'bof');
+        data.vd = fread(fid, [6, record_count], '6*float32=>single', 100)';
 
-    for i = 1:record_count
-        % Vm[6] - 24 bytes (6 x float32)
-        data.Vm(i,:) = fread(fid, 6, 'float32')';
+        fseek(fid, header_size + 48, 'bof');
+        data.da = fread(fid, [6, record_count], '6*uint16=>uint16', 112)';
 
-        % vd[6] - 24 bytes (6 x float32)
-        data.vd(i,:) = fread(fid, 6, 'float32')';
+        fseek(fid, header_size + 60, 'bof');
+        data.debug = fread(fid, [16, record_count], '16*float32=>single', 60)';
 
-        % da[6] - 12 bytes (6 x uint16)
-        data.da(i,:) = fread(fid, 6, 'uint16')';
+    else
+        % V1: record_size=60
+        % Vm[6f32](24) + vd[6f32](24) + da[6u16](12)
+        fseek(fid, header_size, 'bof');
+        data.Vm = fread(fid, [6, record_count], '6*float32=>single', 36)';
 
-        if version >= 5
-            % V5: DebugRecord[10] - 40 bytes (10 x float32)
-            data.debug(i,:) = fread(fid, 10, 'float32')';
-            % V5: adc_raw[12] - 24 bytes (12 x uint16)
-            data.adc_raw(i,:) = fread(fid, 12, 'uint16')';
-        elseif version >= 4
-            % V4: DebugRecord[16] - 64 bytes (16 x float32)
-            data.debug(i,:) = fread(fid, 16, 'float32')';
-            % V4: adc_raw[12] - 24 bytes (12 x uint16)
-            data.adc_raw(i,:) = fread(fid, 12, 'uint16')';
-        elseif version >= 2
-            % V2/V3: DebugRecord[16] - 64 bytes (16 x float32)
-            data.debug(i,:) = fread(fid, 16, 'float32')';
-        end
+        fseek(fid, header_size + 24, 'bof');
+        data.vd = fread(fid, [6, record_count], '6*float32=>single', 36)';
+
+        fseek(fid, header_size + 48, 'bof');
+        data.da = fread(fid, [6, record_count], '6*uint16=>uint16', 48)';
     end
 
     % Store metadata

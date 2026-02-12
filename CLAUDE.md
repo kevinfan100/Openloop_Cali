@@ -16,6 +16,8 @@ configs/
   NTU_config.m
   NTU_t_config.m        ← NTU tip sensor (DA ch2 → Vm ch3)
   NTU_s_config.m        ← NTU surface sensor (DA ch2 → Vm ch2)
+  Hung_pair_2_config.m  ← Hung pair 主通道 (DA ch2 → Vm ch2)
+  Hung_pair_3_config.m  ← Hung pair 耦合通道 (DA ch2 → Vm ch3)
   Sweep_config.m        ← UI 自動掃頻 template (15 點頻率表)
   config_template.m     ← 新實驗 template (有註解說明)
 pipeline/
@@ -26,7 +28,7 @@ pipeline/
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
   step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (固定順序 Hung→NoWasher→NTU→NTU_t→NTU_s)
 functions/              ← 核心演算法 (保留不動)
-  read_hsdata.m         ← binary reader (V1~V8 格式)
+  read_hsdata.m         ← binary reader (V1~V8 格式, vectorized fread)
   detect_steady_state.m, detect_steady_state_relative.m
   fit_single_tf.m       ← 3×3 加權最小平方
   apply_plot_style.m    ← 統一 style 工具
@@ -38,12 +40,15 @@ data/
   Hung_no_washer/single_raw_data/
   NTU/single_raw_data/
   NTU_ts/single_raw_data/     ← 19 個 .dat 檔 (tip+surface 雙通道)
+  Hung_pair/pair_raw_data/   ← 19 個 .dat 檔 (V8, dual-channel excite+coupled)
 results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
   Hung_no_washer/
   NTU/
   NTU_t/                      ← tip sensor 結果
   NTU_s/                      ← surface sensor 結果
+  Hung_pair_2/                ← excite channel 結果 (Vm ch2)
+  Hung_pair_3/                ← coupled channel 結果 (Vm ch3)
   Comparison_Bode.png                  ← Bode 比較圖 (正規化, legend 含 H(0.1))
   Comparison_Bode_TS.png               ← NTU_t/NTU_s 正規化 Bode (自動偵測 TS pair)
   Comparison_Bode_dB.png               ← Bode 比較圖 (原始 dB)
@@ -81,6 +86,14 @@ run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'cross_channel', 'Frequencie
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);   % TS Vm/I 疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Type', 'ts_timedomain', 'Frequencies', [10,100,1000]);  % TS 時域疊圖
 run_analysis({'NTU_t', 'NTU_s'}, 'compare', 'Normalize', true);                                      % TS 正規化 Bode → _TS.png
+
+% Hung_pair 雙通道分析 (excite ch2 vs coupled ch3)
+run_analysis('Hung_pair_2', 'fft');                                                                       % excite channel (Vm ch2)
+run_analysis('Hung_pair_3', 'fft');                                                                       % coupled channel (Vm ch3)
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Tag', 'Hung_pair');           % Bode dB 疊圖
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Scale', 'linear', 'Tag', 'Hung_pair'); % Bode linear
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'Hung_pair');            % 正規化 Bode
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'Hung_pair');              % 比值圖
 ```
 
 ### Pipeline 各步驟 (step) 說明
@@ -224,6 +237,9 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
    - 逗號+換行會被 MATLAB 解讀為 row separator → checkcode 警告
 
 ### 數據處理注意
+3b. **`read_hsdata` 使用 vectorized fread-with-skip** — 每個欄位只需 1 次 fseek + fread（共 3~5 次），取代舊版 per-record for loop（N×3~5 次 fread）。1.5M records: ~1.7s (原本需數十秒)
+3c. **V8 格式為目前預設** — `data.Vm` (N×6 single), `data.da` (N×6 uint16), 無 `.channels` 欄位；`data.sampling_rate`, `data.frequency`, `data.channel` 來自 header
+3d. **`detect_steady_state_relative` API** — `ss_info = detect_steady_state_relative(vm, freq, fs, 'Name', Value)` 回傳 struct with `.index`（穩態起始 sample index）
 4. **THD 值會因穩態窗口選擇而略有不同** — 這是預期行為，不影響 fitting
 5. **Super-period FFT 後，整除頻率維持 zero diff，非整除頻率有 0.3%~2% 改善** — 700/900/1400/1800 Hz 因穩態段太短會 fallback 到 round() 截斷，結果與舊版一致
 6. **Fitting 品質 (R²) 高度依賴 `wc_Hz`** — 使用錯誤的 wc 會導致 R² < 0 或不穩定極點
@@ -285,12 +301,14 @@ MarkerFaceColor = 'none';
 
 ### 3.3 固定顏色方案
 ```matlab
-% 五組實驗
-Hung    = [0,0,1]   blue  'o'
-NoWasher  = [0,0.6,0] green 'd'
-NTU     = [1,0,0]   red   's'
-NTU_t   = [0,0,1]   blue  'o'   % V_{tip}
-NTU_s   = [1,0,0]   red   's'   % V_{surface}
+% 七組實驗
+Hung        = [0,0,1]   blue  'o'
+NoWasher    = [0,0.6,0] green 'd'
+NTU         = [1,0,0]   red   's'
+NTU_t       = [0,0,1]   blue  'o'   % V_{tip}
+NTU_s       = [1,0,0]   red   's'   % V_{surface}
+Hung_pair_2 = [0,0,1]   blue  'o'   % V_{excite}
+Hung_pair_3 = [1,0,0]   red   's'   % V_{coupled}
 
 % 6×6 通道
 P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
@@ -395,6 +413,8 @@ H_ref.NTU          = 0.0914;
 H_ref.Hung_no_washer  = 0.0733;
 H_ref.NTU_t        = 0.2419;   % tip sensor (Vm ch3)
 H_ref.NTU_s        = 0.0972;   % surface sensor (Vm ch2)
+H_ref.Hung_pair_2  = 0.0295;   % excite channel (Vm ch2)
+H_ref.Hung_pair_3  = 0.0014;   % coupled channel (Vm ch3)
 
 % Frequencies — 舊 19 點 (Hung/Hung_no_washer/NTU/NTU_ts)
 frequencies_19 = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
@@ -421,6 +441,8 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 11. **TS Lissajous + TS TimeDomain** — 新 compare type 正確生成 Vm/I 疊圖和時域疊圖（ts_lissajous 同時產生原始+正規化版本）
 12. **Super-period FFT** — `compute_super_period` 正確性已驗證 (23 頻率皆為精確整數)，整除頻率 zero diff，非整除頻率 0.3%~2% 改善，fallback 正常運作
 13. **Bode freq_max 自動** — 比較圖 XLim 從 CSV max(freq) 自動推算，不再寫死 2000
+14. **Vectorized read_hsdata** — fread-with-skip 產出與 per-record loop bit-identical（Hung + Hung_pair 皆 zero diff verified）
+15. **Hung_pair 雙通道** — Hung_pair_2 (excite, Vm ch2) 和 Hung_pair_3 (coupled, Vm ch3) FFT + 比較圖正確生成
 
 ### 完整驗證指令
 ```matlab
@@ -441,4 +463,11 @@ run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'cross_channel', 'Frequencies
 run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ts_lissajous', 'Frequencies', [10,100,1000]);
 run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ts_timedomain', 'Frequencies', [10,100,1000]);
 run_analysis({'NTU_t','NTU_s'}, 'compare', 'Normalize', true);  % → Comparison_Bode_TS.png
+
+% Hung_pair 雙通道
+run_analysis('Hung_pair_2', 'fft');
+run_analysis('Hung_pair_3', 'fft');
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', false, 'Tag', 'Hung_pair');
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'Hung_pair');
+run_analysis({'Hung_pair_2','Hung_pair_3'}, 'compare', 'Type', 'ratio', 'Tag', 'Hung_pair');
 ```

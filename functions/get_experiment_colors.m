@@ -34,4 +34,12 @@ function colors = get_experiment_colors()
     colors.NTU_s.rgb = [1, 0, 0];
     colors.NTU_s.marker = 's';
     colors.NTU_s.display_name = 'V_{surface}';
+
+    colors.Hung_pair_2.rgb = [0, 0, 1];
+    colors.Hung_pair_2.marker = 'o';
+    colors.Hung_pair_2.display_name = 'V_{excite}';
+
+    colors.Hung_pair_3.rgb = [1, 0, 0];
+    colors.Hung_pair_3.marker = 's';
+    colors.Hung_pair_3.display_name = 'V_{coupled}';
 end

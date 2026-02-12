@@ -114,7 +114,7 @@ end
 
 %% ===== Helper: fixed display order =====
 function ordered = order_experiments(experiment_names)
-    display_order = {'Hung'; 'Hung_no_washer'; 'Hung_spring_washer'; 'NTU'; 'NTU_t'; 'NTU_s'};
+    display_order = {'Hung'; 'Hung_no_washer'; 'Hung_spring_washer'; 'NTU'; 'NTU_t'; 'NTU_s'; 'Hung_pair_2'; 'Hung_pair_3'};
     ordered = {};
     for k = 1:length(display_order)
         if any(strcmp(experiment_names, display_order{k}))
@@ -257,9 +257,17 @@ function compare_bode(ordered_names, n_exp, colors, project_root, do_normalize, 
                 out_file = fullfile(out_folder, 'Comparison_Bode.png');
             end
         elseif strcmp(scale_mode, 'linear')
-            out_file = fullfile(out_folder, 'Comparison_Bode_Linear.png');
+            if ~isempty(output_tag)
+                out_file = fullfile(out_folder, sprintf('Comparison_Bode_Linear_%s.png', output_tag));
+            else
+                out_file = fullfile(out_folder, 'Comparison_Bode_Linear.png');
+            end
         else
-            out_file = fullfile(out_folder, 'Comparison_Bode_dB.png');
+            if ~isempty(output_tag)
+                out_file = fullfile(out_folder, sprintf('Comparison_Bode_dB_%s.png', output_tag));
+            else
+                out_file = fullfile(out_folder, 'Comparison_Bode_dB.png');
+            end
         end
         exportgraphics(fig, out_file, 'Resolution', 150);
         if verbose, fprintf('\nSaved: %s\n', out_file); end
