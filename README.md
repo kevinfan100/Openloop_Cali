@@ -3,42 +3,32 @@
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2020a+-blue.svg)](https://www.mathworks.com/products/matlab.html)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 
-> **Automated frequency response analysis and MIMO transfer function identification for multi-channel control systems**
+> **Open-loop frequency response calibration for hexapole electromagnetic actuators**
 
 [繁體中文](README_zh-TW.md) | **English**
 
 ---
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Project Structure](#project-structure)
-- [Workflow](#workflow)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration Guide](#configuration-guide)
-- [Output Files](#output-files)
-- [Function Reference](#function-reference)
-- [Troubleshooting](#troubleshooting)
-
----
-
 ## Overview
 
-This project provides an end-to-end **pure MATLAB** pipeline for **open-loop frequency response analysis** and **MIMO (Multiple-Input Multiple-Output) transfer function fitting** from binary measurement data.
+This project provides an automated **pure MATLAB** pipeline for open-loop frequency response analysis of hexapole electromagnetic actuators. It processes raw binary measurement data (`.dat`) into Bode plots, transfer function fits, and multi-experiment comparisons.
 
-### Key Capabilities:
-- **Binary Data Reading**: Native MATLAB HSData `.dat` file parser (V1-V8 support)
-- **Automated Bode Analysis**: FFT-based transfer function extraction with steady-state detection
-- **MIMO Model Fitting**: 6×6 transfer function matrix identification with weighted least squares
-- **ZOH Discretization**: Sampled-data system conversion for digital controller implementation
-- **Standardized Visualization**: Consistent Bode plot styling for publication-ready figures
+**Signal chain:** DAC &rarr; Amplifier (k_A) &rarr; Coil &rarr; Magnetic Flux &rarr; Hall Sensor &rarr; Vm
 
-### Version 2.0 Changes:
-- **Pure MATLAB**: Removed Python dependency (hsdata_reader.py)
-- **Modular Design**: All functions in `functions/` folder
-- **One-Click Execution**: Single `main_openloop_cali.m` script for full pipeline
-- **Standardized Plots**: Unified Bode plot styling
+**Model:** H(s) = A&#8322;/(s&#178;+A&#8321;s+A&#8322;) &middot; B &mdash; second-order overdamped, bandwidth ~200 Hz
+
+### 11 Experiments
+
+| Group | Experiment | Description | Freq Points |
+|-------|-----------|-------------|-------------|
+| Single | `Hung` | Hung actuator (with ring) | 19 |
+| Single | `Hung_no_washer` | Hung actuator (no washer) | 19 |
+| Single | `Hung_spring_washer` | Hung actuator (spring washer) | 19 |
+| Single | `Hung_single_yoke` | Hung single yoke | 15 |
+| Single | `NTU` | NTU actuator | 19 |
+| Dual | `NTU_t` / `NTU_s` | NTU tip / surface sensor | 19 |
+| Pair | `Hung_pair_2` / `Hung_pair_3` | Hung excite / coupled channel | 19 |
+| Pair | `NTU_pair_2` / `NTU_pair_3` | NTU excite / coupled channel | 15 |
 
 ---
 
@@ -46,296 +36,250 @@ This project provides an end-to-end **pure MATLAB** pipeline for **open-loop fre
 
 ```
 Openloop_cali/
-├── main_openloop_cali.m          # Main script - one-click execution
-│
-├── functions/                     # Function modules
-│   ├── read_hsdata.m             # Binary file reader (V1-V8)
-│   ├── repair_bad_points.m       # Bad point interpolation
-│   ├── detect_excitation.m       # Excitation channel/frequency detection
-│   ├── detect_steady_state.m     # Steady-state detection
-│   ├── perform_fft.m             # FFT frequency response analysis
-│   ├── normalize_data.m          # Data normalization (phase offset removal)
-│   ├── fit_single_tf.m           # Single curve fitting
-│   ├── fit_mimo_tf.m             # MIMO multi-curve fitting
-│   ├── zoh_discretize.m          # ZOH discretization
-│   ├── save_bode_data.m          # Save Bode data to .m files
-│   ├── export_latex.m            # LaTeX output generation
-│   ├── plot_bode.m               # Standardized Bode plot
-│   └── plot_comparison.m         # Fitting comparison plots
-│
-├── raw_data/                      # Input: Binary .dat files
-│   ├── P1/
-│   │   ├── 0.1Hz.dat
-│   │   ├── 1Hz.dat
-│   │   └── ... (19 frequencies)
-│   ├── P2/
-│   └── ... (P3~P6)
-│
-├── results/                       # Output directory
-│   ├── bode_data/                 # P1.m ~ P6.m
-│   ├── figures/                   # PNG images
-│   └── reports/                   # LaTeX, MAT files
-│
-├── P1.m ~ P6.m                    # Legacy frequency response data
-├── openloop_bode.m                # Legacy Stage 2 script
-├── Model_6_6_Continuous_Weighted.m # Legacy Stage 3 script
-└── README.md                      # This file
-```
-
----
-
-## Workflow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     STAGE 1: DATA PROCESSING                    │
-│                                                                 │
-│  Raw Binary Data (.dat)                                         │
-│         │                                                       │
-│         ├─ read_hsdata.m → Parse binary format (V1-V8)         │
-│         ├─ repair_bad_points.m → Fix bad samples               │
-│         ├─ detect_excitation.m → Find excitation channel/freq  │
-│         ├─ detect_steady_state.m → Locate steady-state region  │
-│         └─ perform_fft.m → H(jω) = Vm(jω) / DA(jω)             │
-│         ↓                                                       │
-│  Frequency Response Data (P1.m ~ P6.m)                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    STAGE 2: MODEL FITTING                       │
-│                                                                 │
-│  P1.m ~ P6.m                                                    │
-│         │                                                       │
-│         ├─ fit_single_tf.m → 36 individual transfer functions  │
-│         └─ fit_mimo_tf.m → Unified MIMO model                  │
-│              H(s) = [A₂/(s² + A₁s + A₂)] · B                   │
-│         ↓                                                       │
-│  [ zoh_discretize.m ]                                          │
-│         ↓                                                       │
-│  Discrete Transfer Function H(z⁻¹)                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                     STAGE 3: OUTPUT                             │
-│                                                                 │
-│  ├─ save_bode_data.m → P1.m ~ P6.m                             │
-│  ├─ export_latex.m → transfer_function_latex.txt               │
-│  ├─ plot_bode.m → Bode_P1.png ~ Bode_P6.png                    │
-│  └─ plot_comparison.m → Comparison plots                       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+├── run_analysis.m              # Unified entry point
+├── configs/                    # Experiment configurations
+│   ├── default_config.m        #   Shared defaults (~92 lines)
+│   ├── build_data_files.m      #   Auto-generate .dat filenames
+│   ├── Hung_config.m           #   Per-experiment overrides (~15 lines each)
+│   ├── Hung_no_washer_config.m
+│   ├── Hung_spring_washer_config.m
+│   ├── Hung_single_yoke_config.m
+│   ├── NTU_config.m
+│   ├── NTU_t_config.m / NTU_s_config.m
+│   ├── Hung_pair_2_config.m / Hung_pair_3_config.m
+│   ├── NTU_pair_2_config.m / NTU_pair_3_config.m
+│   ├── Sweep_config.m          #   UI frequency sweep template (15 points)
+│   └── config_template.m       #   Template for new experiments
+├── pipeline/                   # Processing steps
+│   ├── step_read.m             #   Read .dat + DAC conversion + sanity check
+│   ├── step_steady_state.m     #   Steady-state detection
+│   ├── step_fft.m              #   FFT + THD + CSV output
+│   ├── step_fit.m              #   Phase offset removal + curve fitting
+│   ├── step_plot.m             #   Bode plots + Dashboard
+│   └── step_compare.m          #   Multi-experiment comparison plots
+├── functions/                  # Core algorithms (6 active)
+│   ├── read_hsdata.m           #   Binary reader (V1-V8, vectorized fread)
+│   ├── repair_bad_points.m     #   Bad point interpolation
+│   ├── detect_steady_state_relative.m
+│   ├── compute_super_period.m  #   Super-period calculation
+│   ├── fit_single_tf.m         #   Weighted least squares fitting
+│   └── get_experiment_colors.m #   Fixed color scheme
+├── data/                       # Raw binary data (.dat, gitignored)
+│   ├── Hung/single_raw_data/
+│   ├── Hung_no_washer/single_raw_data/
+│   ├── Hung_spring_washer/single_raw_data/
+│   ├── NTU/single_raw_data/
+│   ├── NTU_ts/single_raw_data/
+│   ├── Hung_pair/pair_raw_data/
+│   ├── NTU_pair/pair_raw_data/
+│   └── Hung_single_yoke/single_yoke_raw_data/
+├── results/                    # Output (mostly gitignored)
+│   ├── <experiment>/diagnostics/  # Raw_Bode_Data.csv, Dashboard
+│   ├── <experiment>/figures/      # Bode plots (Fitted/Residuals/DataOnly)
+│   ├── <experiment>/fitting_results/  # fit_results.mat
+│   └── <Tag>/Comparison_*.png     # Comparison plots
+└── legacy/                     # Old scripts (v2.0 architecture)
+    ├── Model_6_6_Continuous_Weighted.m  # MIMO 6x6 fitting
+    ├── P1.m ~ P6.m                      # 6x6 frequency response data
+    └── functions/                       # 12 unused functions
 ```
 
 ---
 
 ## Prerequisites
 
-### Software Requirements
-
-| Software | Version | Purpose |
-|----------|---------|---------|
-| **MATLAB** | R2020a+ | All processing |
-
-### MATLAB Toolboxes
-- Control System Toolbox (for c2d, tf functions)
-- Signal Processing Toolbox (optional, for advanced filtering)
+| Software | Version | Required |
+|----------|---------|----------|
+| **MATLAB** | R2020a+ | Yes |
+| Control System Toolbox | - | For `c2d`, `tf` functions (fitting only) |
 
 ---
 
 ## Quick Start
 
-### One-Click Execution
-
 ```matlab
 % Navigate to project directory
 cd 'path/to/Openloop_cali'
 
-% Run the complete pipeline
-run('main_openloop_cali.m')
+% Full pipeline: read → steady-state → FFT → fit → plot + dashboard
+run_analysis('Hung', 'all');
+
+% FFT only (produces CSV, no fitting)
+run_analysis('Hung', 'fft');
+
+% Fit from existing CSV (no .dat needed)
+run_analysis('Hung', 'fit');
+
+% Override fitting parameters
+run_analysis('Hung', 'fit', 'wc_Hz', 1);
+
+% Multi-experiment Bode comparison
+run_analysis({'Hung', 'Hung_no_washer', 'NTU'}, 'compare');
+
+% Normalized comparison (each experiment normalized by its own H(0.1Hz))
+run_analysis({'Hung', 'Hung_no_washer', 'NTU'}, 'compare', 'Normalize', true);
 ```
 
-This will:
-1. Process all `.dat` files in `raw_data/P1~P6/`
-2. Generate frequency response data `P1.m ~ P6.m`
-3. Fit MIMO transfer function model
-4. Perform ZOH discretization
-5. Generate Bode plots and comparison figures
-6. Export LaTeX and MAT files
+### Pipeline Steps
 
-### Process Existing P*.m Files Only
+| Step | Input | Output | Description |
+|------|-------|--------|-------------|
+| `'all'` | .dat files | CSV + .mat + PNG + Dashboard | Full pipeline |
+| `'read'` | .dat files | struct array | Read & validate only |
+| `'fft'` | .dat files | Raw_Bode_Data.csv | Read &rarr; steady-state &rarr; FFT |
+| `'fit'` | CSV | fit_results.mat + Bode PNGs + Dashboard | Fitting + plots |
+| `'plot'` | .mat or CSV | Bode PNGs + Dashboard | Plot only |
+| `'compare'` | CSV or .dat | Comparison_*.png | Multi-experiment comparison |
 
-If you already have P1.m ~ P6.m files:
+### Comparison Types
 
 ```matlab
-% Edit main_openloop_cali.m
-ENABLE_STAGE1 = false;  % Skip raw data processing
-ENABLE_STAGE2 = true;   % Run fitting
-ENABLE_STAGE3 = true;   % Generate outputs
+% Bode magnitude + phase (default)
+run_analysis({'Hung','NTU'}, 'compare');
 
-% Run
-run('main_openloop_cali.m')
+% Vm frequency spectrum
+run_analysis({'Hung','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
+
+% Lissajous (Vm vs Current)
+run_analysis({'Hung','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
+
+% Channel ratio
+run_analysis({'NTU_t','NTU_s'}, 'compare', 'Type', 'ratio');
+
+% All comparison types at once
+run_analysis({'Hung','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);
 ```
+
+---
+
+## Data Setup
+
+### Option 1: Download Pre-recorded Data
+
+<!-- TODO: Add cloud storage link when available -->
+Download the data archive and extract it into the `data/` directory.
+
+### Option 2: Record Your Own Data
+
+Use the experiment UI to record `.dat` files at each frequency point. Place them in the appropriate folder:
+
+```
+data/<experiment_name>/single_raw_data/<prefix>_<freq>hz.dat
+```
+
+**Naming convention:** `<prefix>_0.1hz.dat`, `<prefix>_1hz.dat`, ..., `<prefix>_2000hz.dat`
+
+The prefix is defined in each experiment's config file (e.g., `Hung_single` for Hung).
+
+### Data Format
+
+- Binary HSData format (V1-V8), read by `read_hsdata.m`
+- Sampling rate: 20,000 Hz
+- DAC: 16-bit (0-65535), zero = 32768, range = 20V
 
 ---
 
 ## Configuration Guide
 
-### Main Configuration (`main_openloop_cali.m`)
+### Default Configuration (`configs/default_config.m`)
 
-All parameters are in **SECTION 1: Configuration**.
+Contains all shared parameters (~92 lines): DAC conversion, steady-state detection, FFT settings, fitting parameters, plot style, etc.
 
-#### Sampling and Data Repair
-```matlab
-SAMPLING_RATE = 100000;              % Default sampling rate [Hz]
-AUTO_DETECT_SAMPLING_RATE = true;    % Read from V6+ header
+### Per-Experiment Override
 
-BAD_POINT_INTERVAL = 10000;          % Bad point every N samples
-INTERPOLATION_METHOD = 'spline';     % 'linear'|'spline'|'pchip'|'makima'
-ENABLE_BAD_POINT_REPAIR = true;      % Enable repair (100kHz only)
-```
-
-#### Steady-State Detection
-```matlab
-STABILITY_THRESHOLD = 2e-3;          % Max voltage diff between periods [V]
-CONSECUTIVE_PERIODS = 3;             % Required stable periods
-```
-
-#### Fitting Parameters
-```matlab
-P_WEIGHT = 0.5;                      % Weighting exponent
-WC_HZ = 0.1;                         % Cutoff frequency [Hz]
-T_SAMPLE = 1e-5;                     % Discretization sample time [s]
-```
-
-#### Output Control
-```matlab
-ENABLE_STAGE1 = true;                % Process raw data
-ENABLE_STAGE2 = true;                % Fit transfer functions
-ENABLE_STAGE3 = true;                % Generate outputs
-
-PLOT_BODE = true;                    % Generate Bode plots
-PLOT_COMPARISON = true;              % Generate comparison plots
-SAVE_FIGURES = true;                 % Save PNG files
-EXPORT_LATEX = true;                 % Generate LaTeX output
-EXPORT_MAT = true;                   % Save MAT file
-```
-
----
-
-## Output Files
-
-### Frequency Response Data (`results/bode_data/P*.m`)
+Each experiment config inherits from `default_config` and overrides only the differences:
 
 ```matlab
-% P1.m example
-frequencies = [0.1, 1.0, 10.0, ...];           % Hz (1 x N)
-magnitudes_linear = [0.237, 0.233, ...];       % V/V (6 x N)
-phases_processed = [-10.25, -10.35, ...];      % deg (6 x N)
+function config = Hung_config()
+    config = default_config();
+    config.experiment_name = 'Hung';
+    config.data_prefix = 'Hung_single';
+    config.data_folder = fullfile(config.project_root, 'data', 'Hung', 'single_raw_data');
+    config.output_folder = fullfile(config.project_root, 'results', 'Hung');
+    config.data_files = build_data_files(config.data_prefix, config.expected_frequencies);
+    config.fitting.exclude_frequencies = [0.1, 900];
+end
 ```
 
-### Transfer Function (`results/reports/`)
+### Adding a New Experiment
 
-- `fitting_results.mat` - MATLAB structure with all parameters
-- `transfer_function_latex.txt` - LaTeX formatted output
-
-### Figures (`results/figures/`)
-
-- `Bode_P1.png` ~ `Bode_P6.png` - Individual Bode plots
-- `Comparison_P1.png` ~ `Comparison_P6.png` - Fitting comparison
-- `Comparison_dc_gain.png` - DC gain matrix comparison
-- `Comparison_grid.png` - 36-channel overview
+1. Copy `configs/config_template.m` &rarr; `configs/<name>_config.m`
+2. Set `experiment_name`, `data_prefix`, `data_folder`, `output_folder`
+3. Call `build_data_files()` to auto-generate filenames
+4. Set `exclude_frequencies` if needed
+5. Place `.dat` files in `data/<name>/single_raw_data/`
+6. Add color entry to `functions/get_experiment_colors.m`
+7. Run `run_analysis('<name>', 'all')` to verify
 
 ---
 
 ## Function Reference
 
-### Core Functions
+### Active Functions (`functions/`)
 
 | Function | Purpose |
 |----------|---------|
-| `read_hsdata(file_path)` | Read binary .dat file |
-| `repair_bad_points(Vm, da)` | Fix bad data points |
-| `detect_excitation(da, fs)` | Find excitation channel/frequency |
-| `detect_steady_state(Vm, fs, freq)` | Locate steady-state |
-| `perform_fft(Vm, da, info, ch, freq, fs)` | Compute H(jω) |
+| `read_hsdata(filepath)` | Read binary .dat file (V1-V8, vectorized fread) |
+| `repair_bad_points(Vm, da, ...)` | Fix bad data points (100kHz data only) |
+| `detect_steady_state_relative(vm, freq, fs, ...)` | Locate steady-state region |
+| `compute_super_period(freq, fs)` | Compute super-period for FFT truncation |
+| `fit_single_tf(h, phi, w, ...)` | Single-curve weighted least squares fitting |
+| `get_experiment_colors()` | Fixed color scheme for all experiments |
 
-### Fitting Functions
+### Legacy Functions (`legacy/functions/`)
 
-| Function | Purpose |
-|----------|---------|
-| `fit_single_tf(h, phi, w)` | Single curve fitting |
-| `fit_mimo_tf(H_mag, H_phase, freq)` | MIMO fitting |
-| `zoh_discretize(A1, A2, T)` | ZOH discretization |
-
-### Visualization Functions
-
-| Function | Purpose |
-|----------|---------|
-| `plot_bode(freq, mag, phase)` | Standardized Bode plot |
-| `plot_comparison(freq, H_mag, H_phase, A1, A2, B)` | Comparison plots |
-
-### Output Functions
-
-| Function | Purpose |
-|----------|---------|
-| `save_bode_data(path, freq, mag, phase, ch)` | Save P*.m file |
-| `export_latex(path, A1, A2, B, num_z, den_z)` | Export LaTeX |
-| `normalize_data(H_mag, H_phase, freq)` | Phase offset removal |
+12 functions from v2.0 architecture, no longer called by the pipeline.
 
 ---
 
-## Troubleshooting
+## Output Files
 
-### "No .dat files found"
-- Check `raw_data/P1/` folder contains `.dat` files
-- Verify folder naming (P1, P2, ... P6)
+### Per-Experiment Results (`results/<name>/`)
 
-### "No stable period found"
-```matlab
-% Relax threshold
-STABILITY_THRESHOLD = 5e-3;
-CONSECUTIVE_PERIODS = 2;
+```
+results/<name>/
+├── diagnostics/
+│   ├── Raw_Bode_Data.csv          # FFT results (version-controlled)
+│   └── Dashboard_<name>.png       # Overview dashboard
+├── figures/
+│   ├── Bode_<name>_Fitted.png     # Model + Data Bode plot
+│   ├── Bode_<name>_Residuals.png  # Fitting residuals
+│   └── Bode_<name>_DataOnly.png   # Data-only Bode plot
+└── fitting_results/
+    └── fit_results.mat            # Fitting parameters
 ```
 
-### "Matrix ill-conditioned"
-- Check frequency response data quality
-- Verify all P*.m files have consistent frequency points
+### Comparison Results (`results/` or `results/<Tag>/`)
 
-### "Cannot find P*.m"
-- Run Stage 1 first, or
-- Place existing P1.m~P6.m in project root or `results/bode_data/`
+```
+results/Comparison_Bode.png                    # Default (no Tag)
+results/Hung_pair/Comparison_Bode.png          # Tag='Hung_pair'
+results/NTU_yoke/Comparison_Bode.png           # Tag='NTU_yoke'
+```
 
----
+### CSV Format (`Raw_Bode_Data.csv`)
 
-## Bode Plot Style Reference
-
-The standardized Bode plot follows these conventions:
-
-```matlab
-% Colors (P1-P6)
-channel_colors = [
-    0.0000, 0.0000, 0.5000;  % P1: Dark blue
-    0.0000, 0.0000, 1.0000;  % P2: Blue
-    0.0000, 0.5000, 0.0000;  % P3: Green
-    1.0000, 0.0000, 0.0000;  % P4: Red
-    0.8000, 0.0000, 0.8000;  % P5: Magenta
-    0.0000, 0.7500, 0.7500;  % P6: Cyan
-];
-
-% Markers
-markers = {'o', 's', '^', 'd', 'v', 'p'};  % Circle, Square, Triangle, Diamond, etc.
-
-% Style
-unified_linewidth = 3.5;
-unified_markersize = 9;
-ax.FontSize = 18;
-ax.FontWeight = 'bold';
-ax.LineWidth = 2.5;
+```
+Frequency_Hz | Magnitude_Linear | Magnitude_dB | Phase_deg | THD_percent
 ```
 
 ---
 
-**Last Updated:** 2026-01-26
-**Version:** 2.0 (Pure MATLAB)
+## Legacy Scripts
+
+The `legacy/` directory contains the old v2.0 architecture:
+
+- `Model_6_6_Continuous_Weighted.m` &mdash; MIMO 6&times;6 transfer function fitting (self-contained, uses `P1.m`~`P6.m` via `eval`)
+- `P1.m` ~ `P6.m` &mdash; 6-channel frequency response data
+- `legacy/functions/` &mdash; 12 functions superseded by the pipeline
+
+To run the legacy MIMO fitting:
+```matlab
+cd legacy
+Model_6_6_Continuous_Weighted
+```
+
+---
+
+**Last Updated:** 2026-02-13
+**Version:** 3.0
