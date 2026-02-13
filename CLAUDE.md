@@ -1,5 +1,7 @@
 # Openloop_cali 專案規範
 
+> **語言偏好**: 中文為主，英文為輔（專有名詞可用英文）
+
 六極電磁致動器 (hexapole electromagnetic actuator) 開迴路頻率響應校準。
 Signal chain: DAC → Amplifier (k_A) → Coil → Magnetic Flux → Hall Sensor → Vm
 Model: H(s) = A₂/(s²+A₁s+A₂) · B — 二階過阻尼，bandwidth ~200Hz
@@ -13,6 +15,7 @@ configs/
   build_data_files.m    ← 自動從 prefix + frequencies 生成 .dat 檔名
   Hung_config.m         ← 只寫差異 (~15 行覆寫)
   Hung_no_washer_config.m
+  Hung_spring_washer_config.m ← Hung spring washer (19 點, DA ch2 → Vm ch2)
   Hung_single_yoke_config.m  ← Hung single yoke (15 點, DA ch2 → Vm ch2)
   NTU_config.m
   NTU_t_config.m        ← NTU tip sensor (DA ch2 → Vm ch3)
@@ -30,17 +33,17 @@ pipeline/
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
   step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (Tag → subfolder output)
-functions/              ← 核心演算法 (保留不動)
+functions/              ← 核心演算法 (6 個 active)
   read_hsdata.m         ← binary reader (V1~V8 格式, vectorized fread)
-  detect_steady_state.m, detect_steady_state_relative.m
-  fit_single_tf.m       ← 3×3 加權最小平方
-  apply_plot_style.m    ← 統一 style 工具
-  create_top_legend.m   ← 頂端水平 legend 工具
-  get_experiment_colors.m ← 固定顏色方案
+  repair_bad_points.m   ← 壞點修復 (100kHz 數據)
+  detect_steady_state_relative.m ← 穩態檢測 (relative threshold)
   compute_super_period.m ← Super-period 計算 (消除 FFT 頻譜洩漏)
+  fit_single_tf.m       ← 3×3 加權最小平方
+  get_experiment_colors.m ← 固定顏色方案
 data/
   Hung/single_raw_data/       ← 19 個 .dat 檔
   Hung_no_washer/single_raw_data/
+  Hung_spring_washer/single_raw_data/ ← 19 個 .dat 檔
   NTU/single_raw_data/
   NTU_ts/single_raw_data/     ← 19 個 .dat 檔 (tip+surface 雙通道)
   Hung_pair/pair_raw_data/   ← 19 個 .dat 檔 (V8, dual-channel excite+coupled)
@@ -49,6 +52,7 @@ data/
 results/
   Hung/                       ← diagnostics/ + figures/ + fitting_results/
   Hung_no_washer/
+  Hung_spring_washer/         ← spring washer 結果
   Hung_single_yoke/           ← single yoke 結果
   NTU/
   NTU_t/                      ← tip sensor 結果
@@ -62,7 +66,12 @@ results/
   NTU_pair/Comparison_*.png            ← NTU pair 比較圖 (Tag='NTU_pair')
   Hung_yoke/Comparison_*.png           ← Hung single_yoke vs pair 比較圖 (Tag='Hung_yoke')
   NTU_yoke/Comparison_*.png            ← NTU single vs pair 比較圖 (Tag='NTU_yoke')
-legacy/                       ← 舊腳本 (diagnose_*.m, fit_*.m 等)
+legacy/                       ← 舊腳本
+  Model_6_6_Continuous_Weighted.m ← MIMO 6×6 fitting (自包含)
+  P1.m ~ P6.m                    ← 6×6 頻率響應數據 (Model_6_6 需要)
+  openloop_bode.m, main_openloop_cali.m ← v2.0 入口
+  plot_vm_spectrum.m, plot_vm_vs_current.m ← 已整合進 step_compare
+  functions/                     ← 12 個未使用函數 (apply_plot_style, create_top_legend, ...)
 ```
 
 ## 使用方式
@@ -77,6 +86,10 @@ run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare');                       
 run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);   % Vm 頻譜比較
 run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]); % Lissajous 比較
 run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'all', 'Frequencies', [1,10,100]);       % 全部比較圖
+
+% Hung_spring_washer 分析
+run_analysis('Hung_spring_washer', 'all');                                                                 % spring washer 完整 pipeline
+run_analysis({'Hung','Hung_no_washer','Hung_spring_washer','NTU'}, 'compare');                             % 4 組比較
 
 % NTU_ts 雙通道分析 (tip vs surface)
 run_analysis('NTU_t', 'fft');                                                                         % tip sensor (Vm ch3)
@@ -288,7 +301,7 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 20. **TS TimeDomain** — 已整合為 `step_compare` 的 `'Type','ts_timedomain'` 模式（tip+surface 時域疊圖）
 
 ### 尚未整合進 Pipeline 的功能
-21. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 保留在根目錄，未來可整合為 `step_fit` 的 MIMO 模式
+21. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 已搬到 `legacy/`，未來可整合為 `step_fit` 的 MIMO 模式
 22. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
 23. **ZOH 離散化 Pipeline 整合** — 等 MIMO 完成後一起做
 24. **共享假設檢驗 (CV)** — 等 MIMO 完成後一起做
@@ -327,9 +340,10 @@ single           = [1,0,0]     red    's'   % NTU='single', Hung_single_yoke='si
 excite           = [0,0,1]     blue   'o'   % Hung_pair_2, NTU_pair_2
 coupled          = [0,0.6,0]   green  'd'   % Hung_pair_3, NTU_pair_3
 
-% 三組實驗比較 (Hung/NoWasher/NTU)
+% 多組實驗比較 (Hung/NoWasher/SpringWasher/NTU)
 Hung             = [0,0,1]     blue   'o'
 NoWasher         = [0,0.6,0]   green  'd'
+SpringWasher     = [0.6,0,0.8] purple '^'   % display_name='Hung (SpringWasher)'
 NTU              = [1,0,0]     red    's'   % display_name='single'
 
 % TS 雙通道
@@ -361,7 +375,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
 
 ### 3.5 子圖規則
-- **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → Hung(SingleYoke) → NTU → NTU_t → NTU_s → Hung_pair_2 → Hung_pair_3 → NTU_pair_2 → NTU_pair_3**
+- **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → Hung(SpringWasher) → Hung(SingleYoke) → NTU → NTU_t → NTU_s → Hung_pair_2 → Hung_pair_3 → NTU_pair_2 → NTU_pair_3**
 - **Legend 順序必須 match subplot 順序**
 - 多子圖: 共用水平 legend 放在圖頂
 - **xlabel 只放最底圖** — 上面的子圖不要重複
@@ -437,6 +451,7 @@ k_A = 0.3614;               % A/V (channel 2 amplifier gain)
 H_ref.Hung         = 0.0591;   % H(0.1Hz) [V/V]
 H_ref.NTU          = 0.0914;
 H_ref.Hung_no_washer  = 0.0733;
+H_ref.Hung_spring_washer = 0.0438; % spring washer (Vm ch2)
 H_ref.NTU_t        = 0.2419;   % tip sensor (Vm ch3)
 H_ref.NTU_s        = 0.0972;   % surface sensor (Vm ch2)
 H_ref.Hung_pair_2  = 0.0295;   % excite channel (Vm ch2)
@@ -477,13 +492,15 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 18. **Tag subfolder output** — `step_compare` 的 `Tag` 參數改為存到 `results/<Tag>/` 子資料夾，不再加後綴到檔名
 19. **Display names** — pair 實驗圖例改為 `excite` / `coupled`（移除 `V_` 前綴）
 20. **角色統一配色** — single=red 's', excite=blue 'o', coupled=green 'd'，Hung/NTU 系列完全一致；NTU_yoke 3-way 比較正確生成
+21. **Hung_spring_washer** — config + data + pipeline 完整運作，H(0.1Hz)=0.0438，Phase(0.1Hz)=177.3°（有 180° 偏移，同 Hung）
 
 ### 完整驗證指令
 ```matlab
 run_analysis('Hung', 'all');
 run_analysis('Hung_no_washer', 'all');
+run_analysis('Hung_spring_washer', 'all');
 run_analysis('NTU', 'all');
-run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare');
+run_analysis({'Hung','Hung_no_washer','Hung_spring_washer','NTU'}, 'compare');
 run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'spectrum', 'Frequencies', [1,10,100]);
 run_analysis({'Hung','Hung_no_washer','NTU'}, 'compare', 'Type', 'lissajous', 'Frequencies', [1,10,100]);
 
