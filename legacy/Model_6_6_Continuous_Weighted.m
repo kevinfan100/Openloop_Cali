@@ -60,8 +60,8 @@ T_sample = 1e-5;                    % Sampling time [s] (10 μs, Fs = 100 kHz)
 k_A_diag = [0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610];
 
 % --- Output and Visualization Control ---
-PLOT_ONE_CURVE = false;             % Plot single curve Bode diagram
-PLOT_MULTI_CURVE = false;           % Plot multiple curves Bode diagram
+PLOT_ONE_CURVE = true;             % Plot single curve Bode diagram
+PLOT_MULTI_CURVE = true;           % Plot multiple curves Bode diagram
 MULTI_CURVE_EXCITED_CHANNELS = [1]; % Channels to plot (e.g., [1,3,5] for P1,P3,P5)
 
 OUTPUT_LATEX = true;                % Generate LaTeX output file
@@ -72,8 +72,8 @@ SAVE_ONE_CURVE_RESULTS = true;      % Save individual transfer function paramete
 ONE_CURVE_OUTPUT_FILE = 'one_curve_36_results.mat';
 
 % --- SECTION 9: One-Curve vs Multi-Curve Comparison Control ---
-ENABLE_ONE_MULTI_COMPARISON = true;     % Enable comparison plots
-ONE_MULTI_COMPARISON_CHANNELS = [1,2,3,4,5,6];     % Excitation channels to compare (e.g., [1,3,5])
+ENABLE_ONE_MULTI_COMPARISON = false;     % Enable comparison plots
+ONE_MULTI_COMPARISON_CHANNELS = [1];     % Excitation channels to compare (e.g., [1,3,5])
 
 %% SECTION 2: DATA LOADING
 
@@ -776,6 +776,7 @@ if PLOT_MULTI_CURVE
     font_props = {'FontWeight', 'bold', 'FontSize', 24, 'LineWidth', 2};
     axis_props = {'XScale', 'log', 'XLim', [0.1, freq_max], 'XTick', log_ticks};
     channel_colors = ['k','b','g','r','m','c'];
+    pair_of = [2, 1, 4, 3, 6, 5];  % paired channels: (1,2), (3,4), (5,6)
 
     freq_smooth = logspace(log10(min(W)), log10(max(W)), 200);
     s_smooth = 1j * 2 * pi * freq_smooth;
@@ -791,11 +792,12 @@ if PLOT_MULTI_CURVE
         % Plot single model curve first (for legend order)
         H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
         H_model_norm = H_model / (A2/A2);
-        semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 3, ...
+        semilogx(freq_smooth, 20*log10(abs(H_model_norm)), 'k-', 'LineWidth', 6, ...
             'DisplayName', 'Model');
 
-        % Plot measured data (normalized by B matrix)
+        % Plot measured data (normalized by B matrix, skip paired channel)
         for ch = 1:6
+            if ch == pair_of(excited_ch), continue; end
             h_meas = squeeze(H_mag(ch, excited_ch, :));
             dc_gain_theoretical = B(ch, excited_ch);
 
@@ -803,13 +805,13 @@ if PLOT_MULTI_CURVE
             h_meas_norm = h_meas / dc_gain_theoretical;
             h_db_norm = 20*log10(h_meas_norm);
 
-            semilogx(W, h_db_norm, 'o-', 'Color', channel_colors(ch), ...
+            semilogx(W, h_db_norm, 'o', 'Color', channel_colors(ch), ...
                 'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
-                'DisplayName', sprintf('P%d (B%d%d=%.4f)', excited_ch, ch, excited_ch, dc_gain_theoretical));
+                'DisplayName', sprintf('P%d (b%d%d=%.4f)', ch, ch, excited_ch, dc_gain_theoretical));
         end
 
-        xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Magnitude (dB)', 'FontWeight', 'bold', 'FontSize', 40);
+        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
         ylim([-30, 1]);
@@ -826,24 +828,24 @@ if PLOT_MULTI_CURVE
         % Plot single model phase first (for legend order)
         H_model = A2 ./ (s_smooth.^2 + A1*s_smooth + A2);
         H_model_phase = angle(H_model) * 180/pi;
-        semilogx(freq_smooth, H_model_phase, 'k-', 'LineWidth', 3, ...
+        semilogx(freq_smooth, H_model_phase, 'k-', 'LineWidth', 6, ...
             'DisplayName', 'Model');
 
-        % Plot measured phase
+        % Plot measured phase (skip paired channel)
         for ch = 1:6
+            if ch == pair_of(excited_ch), continue; end
             phi = squeeze(H_phase_offset_removed(ch, excited_ch, :));
             dc_gain_theoretical = B(ch, excited_ch);
-            semilogx(W, phi, 'o-', 'Color', channel_colors(ch), ...
+            semilogx(W, phi, 'o', 'Color', channel_colors(ch), ...
                 'LineWidth', 3.5, 'MarkerSize', 12, 'MarkerFaceColor', 'none', ...
-                'DisplayName', sprintf('P%d (B%d%d=%.4f)', excited_ch, ch, excited_ch, dc_gain_theoretical));
+                'DisplayName', sprintf('P%d (b%d%d=%.4f)', ch, ch, excited_ch, dc_gain_theoretical));
         end
 
         xlabel('Frequency (Hz)', 'FontWeight', 'bold', 'FontSize', 40);
         ylabel('Phase (deg)', 'FontWeight', 'bold', 'FontSize', 40);
-        legend('Location', 'southwest', 'FontWeight', 'bold', 'FontSize', 18);
 
         set(gca, axis_props{:}, font_props{:});
-        ylim([-180, 1.5]);
+        ylim([-180, 0]);
 
         ax = gca;
         ax.XAxis.LineWidth = 3;
@@ -851,8 +853,7 @@ if PLOT_MULTI_CURVE
         box on;
 
         % Title
-        sgtitle(sprintf('P%d Excitation - Weighted (ωc=%.1f Hz, p=%.1f)', ...
-            excited_ch, wc_multi_Hz, p_multi), 'FontWeight', 'bold', 'FontSize', 24);
+        sgtitle(sprintf('P%d', excited_ch), 'FontWeight', 'bold', 'FontSize', 24);
     end
 
     fprintf('\n=== Plots Generated ===\n');
