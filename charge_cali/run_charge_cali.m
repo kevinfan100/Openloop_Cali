@@ -18,6 +18,8 @@ function run_charge_cali(experiment, mode, varargin)
 
     % Add parent functions/ (read_hsdata, detect_steady_state_relative, compute_super_period)
     addpath(fullfile(project_root, 'functions'));
+    % Add legacy/functions/ (detect_steady_state — called by detect_steady_state_relative)
+    addpath(fullfile(project_root, 'legacy', 'functions'));
     % Add charge_cali/ itself (config, step_charge, fit_charge_model)
     addpath(charge_root);
 

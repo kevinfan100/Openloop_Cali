@@ -69,10 +69,13 @@ results/
 charge_cali/                  ★ 獨立磁荷校準模組
   run_charge_cali.m           ← 入口 (addpath 到上層 functions/)
   Charge_Hung_config.m        ← 實驗 config (standalone, 不依賴 default_config)
+  Charge_NTU_config.m         ← NTU 實驗 config
   fit_charge_model.m          ← 倒平方律擬合: H(x) = a^2 / (x+b)^2
   step_charge.m               ← 主 pipeline (discover → read → FFT → CSV → fit → plot)
-  data/Charge_Hung/charge_raw_data/ ← .dat 檔案 (charge_cali_<dist>um_<freq>hz.dat)
+  data/Charge_Hung/charge_raw_data/         ← Hung .dat 檔案
+  data/charge_cali_NTU/NTU_charge_cali/     ← NTU .dat 檔案 (22 距離 × 15 頻率)
   results/Charge_Hung/        ← diagnostics/ + figures/ + fitting_results/
+  results/Charge_NTU/         ← diagnostics/ + figures/ + fitting_results/
 legacy/                       ← 舊腳本
   Model_6_6_Continuous_Weighted.m ← MIMO 6×6 fitting (自包含)
   P1.m ~ P6.m                    ← 6×6 頻率響應數據 (Model_6_6 需要)
@@ -137,26 +140,29 @@ run_analysis({'NTU','NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'T
 ```matlab
 % 完整 pipeline (read .dat → CSV → fit → plot)
 run_charge_cali('Charge_Hung', 'full');
+run_charge_cali('Charge_NTU', 'full');
 
 % 覆寫擬合頻率
-run_charge_cali('Charge_Hung', 'full', 'fit_frequencies', [0.1, 1]);
+run_charge_cali('Charge_NTU', 'full', 'fit_frequencies', [0.1, 1]);
 
 % 從 CSV 重新擬合 + 畫圖 (跳過讀 .dat)
-run_charge_cali('Charge_Hung', 'fit');
+run_charge_cali('Charge_NTU', 'fit');
 
 % 從 .mat 重新畫圖
-run_charge_cali('Charge_Hung', 'plot');
+run_charge_cali('Charge_NTU', 'plot');
 ```
 
-**模型**: `H(x) = a^2 / (x + b)^2` (倒平方律)，擬合 Hall sensor 在不同距離的頻率響應 magnitude，找出等效磁荷點偏移 `b` (um)。
+**模型**: `H(x) = a^2 / (x + b)^2` (倒平方律)，擬合 Hall sensor 在不同距離的頻率響應 magnitude，找出等效磁荷點偏移 `b` (μm)。
 
 **數據格式**: `charge_cali_<distance>um_<freq>hz.dat` (V8 binary, 20kHz)。
 
 **輸出**:
 - `Charge_Data.csv` — wide format (Distance_um × H_<freq>Hz)
-- `charge_fit_results.mat` + `Charge_Fit_Results.csv` — 擬合參數 (a, b, R^2)
-- `Charge_Fit_Overlay.png` — 各頻率擬合曲線疊圖
-- `Charge_Fit_Summary.png` — b 跨頻率一致性 + R^2
+- `charge_fit_results.mat` + `Charge_Fit_Results.csv` — 擬合參數 (a, b, R²)
+- `Charge_Fit_Overlay.png` — 各頻率擬合曲線疊圖 (高對比色: 藍/紅/綠)
+- `Charge_Fit_Summary.png` — b 跨頻率一致性 + R²
+
+**NTU 結果**: 22 距離 (10~2000 μm), 330/330 有效, b=1978.9±1.2 μm, R²>0.992
 
 **共用函數** (透過 addpath 引入): `read_hsdata`, `detect_steady_state_relative`, `compute_super_period`
 
@@ -322,6 +328,8 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 12e. **NTU_pair 雙通道** — NTU_pair_2 (excite, Vm ch2) + NTU_pair_3 (coupled, Vm ch3)，共用 `data/NTU_pair/pair_raw_data/`，15 點頻率表
 12f. **NTU_pair 相位特徵** — excite Phase(0.1Hz)=-4.5° (無 180° 偏移)；coupled 有 200Hz 反共振 (notch + 500Hz phase jump +22°)；與 Hung_pair 不同 (excite 有 180° 偏移)
 12g. **角色統一配色** — pair/yoke 比較圖中 single=red 's', excite=blue 'o', coupled=green 'd'，Hung 和 NTU 系列一致。此配色與三組實驗比較 (Hung=blue, NoWasher=green, NTU=red) 無衝突
+12h. **Charge Overlay 繪圖** — 使用高對比色 (藍/紅/綠) 而非 `lines(N)` (橘黃太近)；遞減線寬 `linspace(LW+2, LW-1, N)` 讓多條曲線都可見；curves 和 markers 分兩個 loop 畫 (markers on top)；legend 格式 `'0.1 Hz (b=1979.3 μm)'` 不含 R²
+12i. **μm 標示** — MATLAB 中用 `\mum` 產生 μm 符號 (xlabel, ylabel, legend DisplayName 皆適用)
 
 ### Git / 工作流程規則
 13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
@@ -408,6 +416,9 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | TS Lissajous Norm | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2, 去DC+normalize |
 | TS TimeDomain | [1800,700] | 1×N | linear | on | top center manual, LineWidth=2 |
 | 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
+| Charge Fit Overlay | [1200,800] | 1×1 | linear | off | northeast, 藍/紅/綠高對比色, 遞減線寬 |
+| Charge Fit Summary | [1200,700] | 2×1 | semilogx | on | per-subplot |
+| Charge Fit Single | [1200,800] | 1×1 | linear | off | northoutside horizontal, 黑色 Model 線 |
 
 ### 3.5 子圖規則
 - **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → Hung(SpringWasher) → Hung(SingleYoke) → NTU → NTU_t → NTU_s → Hung_pair_2 → Hung_pair_3 → NTU_pair_2 → NTU_pair_3**
@@ -528,7 +539,8 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 19. **Display names** — pair 實驗圖例改為 `excite` / `coupled`（移除 `V_` 前綴）
 20. **角色統一配色** — single=red 's', excite=blue 'o', coupled=green 'd'，Hung/NTU 系列完全一致；NTU_yoke 3-way 比較正確生成
 21. **Hung_spring_washer** — config + data + pipeline 完整運作，H(0.1Hz)=0.0438，Phase(0.1Hz)=177.3°（有 180° 偏移，同 Hung）
-22. **Charge calibration** — `fit_charge_model` 合成數據 (a=5, b=120) 回收精度 0% (無噪聲) / <1.5% (1% 噪聲)，R^2=1.0/0.9999；CSV round-trip zero diff；4 個新檔案 checkcode 零警告
+22. **Charge calibration (Hung)** — `fit_charge_model` 合成數據 (a=5, b=120) 回收精度 0% (無噪聲) / <1.5% (1% 噪聲)，R²=1.0/0.9999；CSV round-trip zero diff；4 個新檔案 checkcode 零警告
+23. **Charge calibration (NTU)** — 22 距離 (10~2000 μm), 330/330 有效, b=1978.9±1.2 μm, R²>0.992；Overlay/Summary/Single 0.1Hz 三張圖正確生成；μm 標示正確
 
 ### 完整驗證指令
 ```matlab
@@ -572,8 +584,9 @@ run_analysis({'Hung_single_yoke','Hung_pair_2','Hung_pair_3'}, 'compare', ...
 % NTU single vs pair
 run_analysis({'NTU','NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_yoke');
 
-% Charge calibration (獨立入口, 需數據)
+% Charge calibration (獨立入口)
 run_charge_cali('Charge_Hung', 'full');
-run_charge_cali('Charge_Hung', 'fit');
-run_charge_cali('Charge_Hung', 'plot');
+run_charge_cali('Charge_NTU', 'full');
+run_charge_cali('Charge_NTU', 'fit');
+run_charge_cali('Charge_NTU', 'plot');
 ```

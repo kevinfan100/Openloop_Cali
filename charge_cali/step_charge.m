@@ -87,8 +87,9 @@ end
 function [distances, freq_list, file_map] = discover_files(config, verbose)
 %DISCOVER_FILES Parse data folder for charge calibration .dat files
 %
-% Expected filename pattern: <prefix>_<distance>um_<freq>hz.dat
-% Returns sorted unique distances, sorted frequencies, and a map.
+% Supports two layouts:
+%   Flat:      data_folder/<prefix>_<dist>um_<freq>hz.dat
+%   Subfolder: data_folder/<dist>um/<prefix>_<dist>um_<freq>hz.dat
 
     if verbose
         fprintf('\n========================================\n');
@@ -100,8 +101,12 @@ function [distances, freq_list, file_map] = discover_files(config, verbose)
         error('step_charge:no_data_folder', 'Data folder not found: %s', config.data_folder);
     end
 
-    files = dir(fullfile(config.data_folder, '*.dat'));
-    if isempty(files)
+    % Collect .dat files from root and immediate subfolders
+    files_root = dir(fullfile(config.data_folder, '*.dat'));
+    files_sub = dir(fullfile(config.data_folder, '*', '*.dat'));
+    all_files = [files_root; files_sub];
+
+    if isempty(all_files)
         error('step_charge:no_dat_files', 'No .dat files found in: %s', config.data_folder);
     end
 
@@ -111,13 +116,13 @@ function [distances, freq_list, file_map] = discover_files(config, verbose)
 
     dist_list = [];
     freq_list_raw = [];
-    file_map = struct('distance', {}, 'frequency', {}, 'filename', {});
+    file_map = struct('distance', {}, 'frequency', {}, 'filepath', {});
 
-    for i = 1:length(files)
-        tokens = regexp(files(i).name, pattern, 'tokens', 'ignorecase');
+    for i = 1:length(all_files)
+        tokens = regexp(all_files(i).name, pattern, 'tokens', 'ignorecase');
         if isempty(tokens)
             if verbose
-                fprintf('  Skip (no match): %s\n', files(i).name);
+                fprintf('  Skip (no match): %s\n', all_files(i).name);
             end
             continue;
         end
@@ -127,7 +132,7 @@ function [distances, freq_list, file_map] = discover_files(config, verbose)
         freq_list_raw(end+1) = f; %#ok<AGROW>
         entry.distance = d;
         entry.frequency = f;
-        entry.filename = files(i).name;
+        entry.filepath = fullfile(all_files(i).folder, all_files(i).name);
         file_map(end+1) = entry; %#ok<AGROW>
     end
 
@@ -166,15 +171,13 @@ function H_matrix = process_all_files(config, distances, freq_list, file_map, ve
     for k = 1:total
         d = file_map(k).distance;
         f = file_map(k).frequency;
-        fname = file_map(k).filename;
+        filepath = file_map(k).filepath;
         di = find(distances == d, 1);
         fi = find(freq_list == f, 1);
 
         if verbose
             fprintf('[%d/%d] %d um @ %.1f Hz ... ', k, total, d, f);
         end
-
-        filepath = fullfile(config.data_folder, fname);
         try
             H_mag = process_single_file(filepath, config, f);
             H_matrix(di, fi) = H_mag;
@@ -207,6 +210,13 @@ function H_mag = process_single_file(filepath, config, freq)
     %% Extract channels
     Vm_ch = double(data.Vm(:, analysis_ch));
     da_ch = da_volt(:, excite_ch);
+
+    %% DA sanity check: excitation must be present
+    da_pp = max(da_ch) - min(da_ch);
+    if da_pp < 0.1
+        error('process_single_file:no_excitation', ...
+            'DA peak-to-peak = %.4f V (expected ~4V). No excitation signal.', da_pp);
+    end
 
     %% Steady-state detection
     period_samples = round(fs / freq);
@@ -257,6 +267,10 @@ function H_mag = process_single_file(filepath, config, freq)
     [~, fundamental_bin] = min(abs(freq_axis - freq));
 
     %% H(jw) = Vm / DA
+    if abs(DA_fft(fundamental_bin)) < 1e-10
+        error('process_single_file:zero_da_fft', ...
+            'DA FFT at fundamental is near zero.');
+    end
     H_complex = Vm_fft(fundamental_bin) / DA_fft(fundamental_bin);
     H_mag = abs(H_complex);
 end
@@ -455,39 +469,53 @@ function do_plotting(config, charge_fit_results, fig_folder, verbose)
     hold on;
 
     n_fit = length(fits);
-    colors = lines(n_fit);
+    % High-contrast colors: blue, red, green
+    charge_colors = [0, 0.4470, 0.7410; ...
+                     0.8500, 0.1250, 0.0980; ...
+                     0.4660, 0.6740, 0.1880];
+    if n_fit <= size(charge_colors, 1)
+        colors = charge_colors(1:n_fit, :);
+    else
+        colors = lines(n_fit);
+    end
+    % Line widths: first plotted thickest, last thinnest (so all visible)
+    lw_curves = linspace(LW + 2, LW - 1, n_fit);
 
+    for k = 1:n_fit
+        f = fits(k).frequency;
+
+        % Fitted curve (plot first so data markers are on top)
+        plot(fits(k).fit_distances_smooth, fits(k).fit_magnitudes_smooth, '-', ...
+            'Color', colors(k,:), 'LineWidth', lw_curves(k), ...
+            'DisplayName', sprintf('%.4g Hz (b=%.1f \\mum)', ...
+                f, fits(k).b));
+    end
+    % Data markers on top (separate loop so all markers are above all curves)
     for k = 1:n_fit
         f = fits(k).frequency;
         fi = find(abs(freq_list - f) < 1e-6, 1);
         H_col = H_matrix(:, fi);
         valid_mask = ~isnan(H_col);
 
-        % Data markers
-        plot(distances(valid_mask), H_col(valid_mask), 'o', ...
-            'Color', colors(k,:), 'MarkerSize', MS, ...
-            'LineWidth', LW, 'MarkerFaceColor', 'none', ...
-            'HandleVisibility', 'off');
-
-        % Fitted curve
-        plot(fits(k).fit_distances_smooth, fits(k).fit_magnitudes_smooth, '-', ...
-            'Color', colors(k,:), 'LineWidth', LW, ...
-            'DisplayName', sprintf('%.4g Hz (b=%.1f um, R^2=%.4f)', ...
-                f, fits(k).b, fits(k).R_squared));
-
-        % Re-plot data on top with legend entry
         plot(distances(valid_mask), H_col(valid_mask), 'o', ...
             'Color', colors(k,:), 'MarkerSize', MS, ...
             'LineWidth', LW, 'MarkerFaceColor', 'none', ...
             'HandleVisibility', 'off');
     end
 
-    xlabel('Distance (um)', 'FontSize', FS_label, 'FontWeight', 'bold');
-    ylabel('|H| (V/V)', 'FontSize', FS_label, 'FontWeight', 'bold');
+    % Tight x-axis
+    valid_all = ~all(isnan(H_matrix), 2);
+    xlim([0, max(distances(valid_all)) + 100]);
+
+    xlabel('Distance (\mum)', 'FontSize', FS_label, 'FontWeight', 'bold');
+    ylabel('Magnitude (V/V)', 'FontSize', FS_label, 'FontWeight', 'bold');
     lgd = legend('Location', 'northeast', 'FontSize', FS_legend, 'FontWeight', 'bold');
     lgd.Box = 'on';
-    set(gca, 'FontSize', FS_tick, 'FontWeight', 'bold', ...
+    ax1_h = gca;
+    set(ax1_h, 'FontSize', FS_tick, 'FontWeight', 'bold', ...
         'LineWidth', AX_LW, 'Box', 'on');
+    ax1_h.XAxis.MinorTick = 'on';
+    ax1_h.YAxis.MinorTick = 'on';
     hold off;
 
     %% Save
@@ -512,7 +540,7 @@ function do_plotting(config, charge_fit_results, fig_folder, verbose)
     hold on;
     xl = xlim;
     plot(xl, [mean_b, mean_b], 'r--', 'LineWidth', 2, ...
-        'DisplayName', sprintf('mean = %.2f um', mean_b));
+        'DisplayName', sprintf('mean = %.2f \\mum', mean_b));
     % Shade +/- std
     if ~isnan(std_b) && std_b > 0
         fill([xl(1), xl(2), xl(2), xl(1)], ...
@@ -520,10 +548,10 @@ function do_plotting(config, charge_fit_results, fig_folder, verbose)
              'r', 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off');
     end
     hold off;
-    ylabel('b (um)', 'FontSize', FS_label, 'FontWeight', 'bold');
-    title(sprintf('Offset b: mean = %.2f +/- %.2f um', mean_b, std_b), ...
+    ylabel('b (\mum)', 'FontSize', FS_label, 'FontWeight', 'bold');
+    title(sprintf('Offset b: mean = %.2f +/- %.2f \\mum', mean_b, std_b), ...
         'FontSize', config.plot.font_size_title, 'FontWeight', 'bold');
-    lgd2 = legend('b', sprintf('mean = %.2f um', mean_b), ...
+    lgd2 = legend('b', sprintf('mean = %.2f \\mum', mean_b), ...
         'Location', 'best', 'FontSize', FS_legend, 'FontWeight', 'bold');
     lgd2.Box = 'on';
     set(ax1, 'FontSize', FS_tick, 'FontWeight', 'bold', ...
