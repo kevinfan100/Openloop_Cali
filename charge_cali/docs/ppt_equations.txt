@@ -49,10 +49,10 @@ V_{\text{bead}} = \frac{4}{3}\pi r_{\text{bead}}^3
 %  參數表
 % ============================================================
 
-% Fitted (本實驗)
-a = 765.35
-b = 1979 \; \mu\text{m}
-R_a = 3.19 \times 10^8 \; \text{A/Wb}
+% Fitted (本實驗, 10~500 um 擬合)
+a = 604.84
+b = 1504 \; \mu\text{m}
+R_a = 5.11 \times 10^8 \; \text{A/Wb}
 
 % Hardware (硬體設計)
 N_c = 50 \; \text{turns}
