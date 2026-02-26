@@ -1,0 +1,45 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Magnetic micro/nanomanipulation using electromagnetic actuators has become
+a powerful tool for biological and material science research. By generating
+spatially controlled magnetic field gradients, these actuators exert piconewton-
+to nanonewton-scale forces on paramagnetic microbeads, enabling the study of
+cellular mechanics, molecular bonds, and surface interactions.
+
+The design of such actuators has been advanced significantly by
+Zhang and Menq~\cite{Zhang2010}, who developed a four-pole (quadrupole)
+magnetic force actuator with a ferromagnetic yoke, and later by
+Menq~\cite{Menq2011}, who extended the design to a six-pole (hexapole)
+configuration for full three-dimensional force control. In both designs,
+the ferromagnetic yoke serves as a low-reluctance return path for the
+magnetic flux, concentrating the field at the pole tips and enabling
+strong field gradients over short distances.
+
+A central parameter in these designs is the \emph{magnetic charge offset}
+$b$, which characterizes how far behind the pole tip surface the equivalent
+magnetic monopole charge resides. Physically, $b$ encapsulates the combined
+effect of pole geometry, magnetic circuit reluctance, and flux concentration.
+A smaller $b$ implies tighter flux concentration and stronger gradients at a
+given distance, making $b$ the appropriate figure of merit for comparing
+different actuator geometries.
+
+In this work, we characterize a yokeless hexapole actuator---a configuration
+where the six poles operate without a ferromagnetic yoke, so that the flux
+return path passes entirely through air. This fundamentally different magnetic
+circuit topology is expected to yield a larger $b$ (weaker flux concentration)
+compared to yoke-based designs. The primary objective is to determine $b$
+experimentally through frequency-domain measurements and to compare the
+result with the yoke-based quadrupole of Zhang and Menq~\cite{Zhang2010},
+for which $b \approx \SI{405}{\um}$.
+
+The remainder of this report is organized as follows.
+\Cref{sec:theory} develops the monopole model and derives the
+signal-chain transfer function $H(x)$.
+\Cref{sec:experiment} describes the experimental setup and measurement protocol.
+\Cref{sec:results} presents the fitting results and discusses frequency
+independence and distance range sensitivity.
+\Cref{sec:physics} derives the physical parameters ($\kpole$, $\Ra$) and
+estimates the magnetic force on a paramagnetic bead.
+\Cref{sec:discussion} compares the yokeless and yoke-based designs.
+\Cref{sec:conclusion} summarizes the findings.

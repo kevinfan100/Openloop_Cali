@@ -1,0 +1,25 @@
+% Table 3: Physical parameters — this work vs Menq
+\begin{table}[htbp]
+\centering
+\caption{Comparison of magnetic actuator parameters. Note that $\Ra$ from
+this work represents the total reluctance $R_\mathrm{total}$ (pole + gap +
+air return) of a single yokeless pole, whereas Menq's $\Ra$ is the
+air-gap reluctance only (with a ferromagnetic yoke providing a low-reluctance
+return path). Direct comparison of $\Ra$ is therefore not meaningful;
+the offset $b$ is the appropriate figure of merit.}
+\label{tab:physical-params}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Parameter & This work & Menq 2010 \cite{Zhang2010} & Menq 2011 \cite{Menq2011} \\
+\midrule
+Configuration & Hexapole (no yoke) & Quadrupole (yoke) & Hexapole (yoke) \\
+$\Nc$ (turns)           & 50     & 200    & 200 \\
+$\rtip$ (\si{\um})      & 5      & 40     & 40 \\
+$\kpole$ (Wb/A)         & $1.57 \times 10^{-7}$ & --- & --- \\
+$\Ra$ (A/Wb)            & $3.19 \times 10^{8}$\textsuperscript{a} & $1.8 \times 10^{9}$\textsuperscript{b} & $2.8 \times 10^{9}$\textsuperscript{b} \\
+$b$ or $l$ (\si{\um})   & 1979   & 405    & --- \\
+$K_I$                   & 1      & ---    & --- \\
+\bottomrule
+\multicolumn{4}{@{}l}{\footnotesize \textsuperscript{a} $R_\mathrm{total}$ (no yoke). \textsuperscript{b} $R_\mathrm{air\text{-}gap}$ (with yoke).}
+\end{tabular}
+\end{table}
