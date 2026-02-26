@@ -72,6 +72,7 @@ charge_cali/                  ★ 獨立磁荷校準模組
   Charge_NTU_config.m         ← NTU 實驗 config
   fit_charge_model.m          ← 倒平方律擬合: H(x) = a^2 / (x+b)^2
   step_charge.m               ← 主 pipeline (discover → read → FFT → CSV → fit → plot)
+  analyze_charge_physics.m    ← 參數驗證 + B/dB/F/SNR 物理分析 (從 .mat 載入)
   data/Charge_Hung/charge_raw_data/         ← Hung .dat 檔案
   data/charge_cali_NTU/NTU_charge_cali/     ← NTU .dat 檔案 (22 距離 × 15 頻率)
   results/Charge_Hung/        ← diagnostics/ + figures/ + fitting_results/
@@ -150,6 +151,10 @@ run_charge_cali('Charge_NTU', 'fit');
 
 % 從 .mat 重新畫圖
 run_charge_cali('Charge_NTU', 'plot');
+
+% 物理分析 (參數驗證 + 力量估算，需先有 charge_fit_results.mat)
+analyze_charge_physics('Charge_NTU')
+analyze_charge_physics('Charge_NTU', 'V_DA', 2.5, 'bead_diameter', 4.5e-6)
 ```
 
 **模型**: `H(x) = a^2 / (x + b)^2` (倒平方律)，擬合 Hall sensor 在不同距離的頻率響應 magnitude，找出等效磁荷點偏移 `b` (μm)。
@@ -161,8 +166,11 @@ run_charge_cali('Charge_NTU', 'plot');
 - `charge_fit_results.mat` + `Charge_Fit_Results.csv` — 擬合參數 (a, b, R²)
 - `Charge_Fit_Overlay.png` — 各頻率擬合曲線疊圖 (高對比色: 藍/紅/綠)
 - `Charge_Fit_Summary.png` — b 跨頻率一致性 + R²
+- `Charge_Physics_Analysis.png` — B/dB/F/SNR 2×2 物理分析圖 (由 `analyze_charge_physics` 生成)
 
 **NTU 結果**: 22 距離 (10~2000 μm), 330/330 有效, b=1978.9±1.2 μm, R²>0.992
+
+**NTU 物理分析**: k_pole=1.57×10^-7 Wb/A, R_a=3.19×10^8 A/Wb, B(10um)=2.3 mT, F(500um)=0.023 pN, crossover ~609 um
 
 **共用函數** (透過 addpath 引入): `read_hsdata`, `detect_steady_state_relative`, `compute_super_period`
 
@@ -330,6 +338,8 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 12g. **角色統一配色** — pair/yoke 比較圖中 single=red 's', excite=blue 'o', coupled=green 'd'，Hung 和 NTU 系列一致。此配色與三組實驗比較 (Hung=blue, NoWasher=green, NTU=red) 無衝突
 12h. **Charge Overlay 繪圖** — 使用高對比色 (藍/紅/綠) 而非 `lines(N)` (橘黃太近)；遞減線寬 `linspace(LW+2, LW-1, N)` 讓多條曲線都可見；curves 和 markers 分兩個 loop 畫 (markers on top)；legend 格式 `'0.1 Hz (b=1979.3 μm)'` 不含 R²
 12i. **μm 標示** — MATLAB 中用 `\mum` 產生 μm 符號 (xlabel, ylabel, legend DisplayName 皆適用)
+12j. **Charge 物理分析** — `analyze_charge_physics` 使用論文符號系統 (Menq 2010/2011): Phi=k_pole*I, q=Phi/u0, B=k_pole*I/(4pi*r^2) (u0 抵消)；從 `charge_fit_results.mat` 載入 a/b，反推 k_pole [Wb/A] 和 R_a [A/Wb]；**注意：single pole (無 yoke) 的 R_a 是 R_total (R_pole+R_gap+R_return_air)，不是 Menq 定義的純 air-gap reluctance (有 yoke 提供低 R 回路)，兩者不可直接比較**。有意義的比較是 b (磁荷偏移 = 磁場集中程度)：NTU b=1979 um vs Menq l=405 um
+12k. **Force suppression (b >> r_tip)** — NTU: b=1979 um >> r_tip=5 um；K_I=1 (single pole test)；crossover (F=F_thermal) at ~609 um；F_real/F_ideal = [r_tip/(r_tip+b)]^5 ~ 10^-14 at tip
 
 ### Git / 工作流程規則
 13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
@@ -419,6 +429,7 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | Charge Fit Overlay | [1200,800] | 1×1 | linear | off | northeast, 藍/紅/綠高對比色, 遞減線寬 |
 | Charge Fit Summary | [1200,700] | 2×1 | semilogx | on | per-subplot |
 | Charge Fit Single | [1200,800] | 1×1 | linear | off | northoutside horizontal, 黑色 Model 線 |
+| Charge Physics | [1200,900] | 2×2 | linear+semilogy | on | northeast per-subplot, R_a xline |
 
 ### 3.5 子圖規則
 - **Subplot 順序 ALWAYS: Hung → Hung(NoWasher) → Hung(SpringWasher) → Hung(SingleYoke) → NTU → NTU_t → NTU_s → Hung_pair_2 → Hung_pair_3 → NTU_pair_2 → NTU_pair_3**
@@ -492,6 +503,8 @@ dac.zero_offset = 32768;
 dac.voltage_range = 20.0;   % ±10V
 dac.resolution = 65536;     % 16-bit
 k_A = 0.3614;               % A/V (channel 2 amplifier gain)
+N_c = 50;                   % coil turns per pole
+r_tip = 5e-6;               % pole tip radius [m] (machined curvature)
 
 % Reference values (measured at 0.1 Hz)
 H_ref.Hung         = 0.0591;   % H(0.1Hz) [V/V]
@@ -541,6 +554,7 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 21. **Hung_spring_washer** — config + data + pipeline 完整運作，H(0.1Hz)=0.0438，Phase(0.1Hz)=177.3°（有 180° 偏移，同 Hung）
 22. **Charge calibration (Hung)** — `fit_charge_model` 合成數據 (a=5, b=120) 回收精度 0% (無噪聲) / <1.5% (1% 噪聲)，R²=1.0/0.9999；CSV round-trip zero diff；4 個新檔案 checkcode 零警告
 23. **Charge calibration (NTU)** — 22 距離 (10~2000 μm), 330/330 有效, b=1978.9±1.2 μm, R²>0.992；Overlay/Summary/Single 0.1Hz 三張圖正確生成；μm 標示正確
+24. **Charge physics analysis (NTU)** — k_pole=1.57e-7 Wb/A, R_a=3.19e8 A/Wb (R_total, single pole 無 yoke；Menq R_a=1.8e9/2.8e9 為 air-gap only 有 yoke，不可直接比較), K_I=1, r_tip=5 um, B(10um)=2.3 mT (EQ730L 線性範圍內), a CV=0.06%, F(500um)=0.023 pN, crossover ~609 um; b=1979 um 為有意義的比較指標 (vs Menq l=405 um)
 
 ### 完整驗證指令
 ```matlab
@@ -589,4 +603,7 @@ run_charge_cali('Charge_Hung', 'full');
 run_charge_cali('Charge_NTU', 'full');
 run_charge_cali('Charge_NTU', 'fit');
 run_charge_cali('Charge_NTU', 'plot');
+
+% Charge physics analysis
+analyze_charge_physics('Charge_NTU');
 ```
