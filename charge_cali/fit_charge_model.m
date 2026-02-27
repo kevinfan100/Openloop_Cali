@@ -1,8 +1,12 @@
 function result = fit_charge_model(distances, magnitudes)
 %FIT_CHARGE_MODEL Fit inverse-square law: H(x) = a^2 / (x + b)^2
 %
-% Linearization: y = 1/sqrt(H) = (x + b) / a = (1/a)*x + (b/a)
-% Linear regression on y vs x gives slope=1/a, intercept=b/a.
+% Linearization: y_i = 1/sqrt(H_i), then regress x on y:
+%   x = a*y - b
+%   a = (mean(x*y) - mean(x)*mean(y)) / (mean(y^2) - mean(y)^2)
+%   b = a*mean(y) - mean(x)
+%
+% This directly yields a and b without intermediate slope/intercept.
 %
 % Input:
 %   distances  - [M x 1] distance values (um)
@@ -34,22 +38,25 @@ function result = fit_charge_model(distances, magnitudes)
     %% Linearize: y = 1 / sqrt(H)
     y = 1 ./ sqrt(H);
 
-    %% Linear regression: y = slope * x + intercept
-    coeffs = polyfit(x, y, 1);
-    slope = coeffs(1);       % 1/a
-    intercept = coeffs(2);   % b/a
+    %% Regression of x on y: x = a*y - b
+    x_bar  = mean(x);
+    y_bar  = mean(y);
+    xy_bar = mean(x .* y);
+    y2_bar = mean(y.^2);
 
-    %% Recover physical parameters
-    if abs(slope) < eps
-        error('fit_charge_model:zero_slope', 'Slope is zero, cannot recover parameters.');
+    denom = y2_bar - y_bar^2;
+    if abs(denom) < eps
+        error('fit_charge_model:zero_variance', ...
+            'y has zero variance, cannot fit.');
     end
-    a = 1 / slope;
-    b = intercept / slope;
 
-    %% R^2 in linearized space
-    y_fit = polyval(coeffs, x);
+    a = (xy_bar - x_bar * y_bar) / denom;
+    b = a * y_bar - x_bar;
+
+    %% R^2 in linearized space (y direction)
+    y_fit = (x + b) / a;
     SS_res = sum((y - y_fit).^2);
-    SS_tot = sum((y - mean(y)).^2);
+    SS_tot = sum((y - y_bar).^2);
     if SS_tot > 0
         R_squared = 1 - SS_res / SS_tot;
     else
