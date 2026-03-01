@@ -25,6 +25,7 @@ configs/
   NTU_pair_2_config.m   ← NTU pair 主通道 (DA ch2 → Vm ch2, 15 點)
   NTU_pair_3_config.m   ← NTU pair 耦合通道 (DA ch2 → Vm ch3, 15 點)
   Sweep_config.m        ← UI 自動掃頻 template (15 點頻率表)
+  MIMO_config.m         ← MIMO 6×6 實驗設定 (legacy P*.m 或 .dat)
   config_template.m     ← 新實驗 template (有註解說明)
 pipeline/
   step_read.m           ← 讀取 .dat + DAC 轉換 + L1 sanity check
@@ -33,12 +34,19 @@ pipeline/
   step_fit.m            ← Phase offset removal + fitting (single-curve)
   step_plot.m           ← Bode 圖生成 (Model+Data / Residuals / Data Only 三 tab) + Dashboard
   step_compare.m        ← 多實驗比較: Bode / Spectrum / Lissajous / Ratio / CrossChannel / TS_Lissajous / TS_TimeDomain (Tag → subfolder output)
-functions/              ← 核心演算法 (6 個 active)
+  step_mimo_fft.m       ← MIMO Stage 1: 數據→頻域 CSV (6×6×N tensor)
+  step_mimo_fit.m       ← MIMO Stage 2: 自動相位修正→batch single→MIMO fitting→ZOH
+  step_mimo_plot.m      ← MIMO 繪圖: Per-excitation Bode / B Matrix / CV / Phase Diagnostic
+functions/              ← 核心演算法 (10 個 active)
   read_hsdata.m         ← binary reader (V1~V8 格式, vectorized fread)
   repair_bad_points.m   ← 壞點修復 (100kHz 數據)
   detect_steady_state_relative.m ← 穩態檢測 (relative threshold)
   compute_super_period.m ← Super-period 計算 (消除 FFT 頻譜洩漏)
   fit_single_tf.m       ← 3×3 加權最小平方
+  fit_mimo_tf.m         ← MIMO 多曲線擬合 (共享 A1,A2 + B matrix)
+  auto_phase_correct_6x6.m ← 自動 180° 相位修正 (6×6 投票法)
+  load_legacy_pdata.m   ← P*.m 資料載入器 (raw phases)
+  detect_steady_state.m  ← 穩態檢測 (absolute threshold, 被 relative 版呼叫)
   get_experiment_colors.m ← 固定顏色方案
 data/
   Hung/single_raw_data/       ← 19 個 .dat 檔
@@ -66,6 +74,10 @@ results/
   NTU_pair/Comparison_*.png            ← NTU pair 比較圖 (Tag='NTU_pair')
   Hung_yoke/Comparison_*.png           ← Hung single_yoke vs pair 比較圖 (Tag='Hung_yoke')
   NTU_yoke/Comparison_*.png            ← NTU single vs pair 比較圖 (Tag='NTU_yoke')
+  MIMO/                                ← MIMO 6×6 fitting 結果
+    diagnostics/
+    figures/                           ← MIMO_Bode_P1~P6.png, B_Matrix, Shared_Hypothesis, Phase_Correction
+    fitting_results/                   ← mimo_fit_results.mat, CSV, LaTeX
 charge_cali/                  ★ 獨立磁荷校準模組
   run_charge_cali.m           ← 入口 (addpath 到上層 functions/)
   Charge_Hung_config.m        ← 實驗 config (standalone, 不依賴 default_config)
@@ -73,16 +85,14 @@ charge_cali/                  ★ 獨立磁荷校準模組
   fit_charge_model.m          ← 倒平方律擬合: H(x) = a^2 / (x+b)^2
   step_charge.m               ← 主 pipeline (discover → read → FFT → CSV → fit → plot)
   analyze_charge_physics.m    ← 參數驗證 + B/dB/F/SNR 物理分析 (從 .mat 載入)
-  data/Charge_Hung/charge_raw_data/         ← Hung .dat 檔案
   data/charge_cali_NTU/NTU_charge_cali/     ← NTU .dat 檔案 (22 距離 × 15 頻率)
-  results/Charge_Hung/        ← diagnostics/ + figures/ + fitting_results/
   results/Charge_NTU/         ← diagnostics/ + figures/ + fitting_results/
-legacy/                       ← 舊腳本
-  Model_6_6_Continuous_Weighted.m ← MIMO 6×6 fitting (自包含)
-  P1.m ~ P6.m                    ← 6×6 頻率響應數據 (Model_6_6 需要)
-  openloop_bode.m, main_openloop_cali.m ← v2.0 入口
+legacy/                       ← 舊腳本 (保留供參考)
+  P1.m ~ P6.m                    ← 6×6 頻率響應數據 (MIMO pipeline 使用)
+  Model_6_6_Continuous_Weighted.m ← MIMO 6×6 fitting 原始版 (已整合進 pipeline)
+  openloop_bode.m, main_openloop_cali.m ← v2.0 入口 (已被 run_analysis 取代)
   plot_vm_spectrum.m, plot_vm_vs_current.m ← 已整合進 step_compare
-  functions/                     ← 12 個未使用函數 (apply_plot_style, create_top_legend, ...)
+  functions/                     ← 12 個函數 (detect_steady_state 被 pipeline 間接使用，其餘已整合或未使用)
 ```
 
 ## 使用方式
@@ -134,6 +144,13 @@ run_analysis({'Hung_single_yoke','Hung_pair_2','Hung_pair_3'}, 'compare', ...
 
 % NTU single vs pair 比較 (Tag → results/NTU_yoke/)
 run_analysis({'NTU','NTU_pair_2','NTU_pair_3'}, 'compare', 'Normalize', true, 'Tag', 'NTU_yoke');            % 正規化 Bode
+
+% MIMO 6×6 fitting (legacy P*.m 資料)
+run_analysis('MIMO', 'mimo_all');                                    % 完整流程: 載入→CSV→修正→擬合→圖
+run_analysis('MIMO', 'mimo_fft');                                    % Stage 1: 數據→原始 CSV
+run_analysis('MIMO', 'mimo_fit');                                    % Stage 2: 從 CSV 修正→擬合→圖
+run_analysis('MIMO', 'mimo_fit', 'wc_Hz', 10);                      % 覆寫 wc_Hz
+run_analysis('MIMO', 'mimo_plot');                                   % 從 .mat 重新畫圖
 ```
 
 ### Charge Calibration (獨立模組, 入口: `charge_cali/run_charge_cali.m`)
@@ -183,6 +200,10 @@ analyze_charge_physics('Charge_NTU', 'V_DA', 2.5, 'bead_diameter', 4.5e-6)
 | `'fit'` | CSV | fit_results.mat + Fitted/Residuals/DataOnly PNG + Dashboard | 從 CSV fitting + 畫圖 |
 | `'plot'` | .mat 或 CSV | Fitted/Residuals/DataOnly PNG + Dashboard | 只畫圖 |
 | `'compare'` | CSV 或 .dat | Comparison_*.png | 多實驗比較 (Type: bode/spectrum/lissajous/ratio/cross_channel/ts_lissajous/ts_timedomain/all) |
+| `'mimo_all'` | P*.m (legacy) | CSV + .mat + PNG + LaTeX | MIMO 完整流程 |
+| `'mimo_fft'` | P*.m (legacy) | MIMO_Raw_Bode_Data.csv | Stage 1: 數據→頻域 (不修正) |
+| `'mimo_fit'` | CSV | mimo_fit_results.mat + CSV + LaTeX + PNG | Stage 2: 修正→擬合→圖 |
+| `'mimo_plot'` | .mat | MIMO_Bode_P*.png + B_Matrix + Hypothesis + Phase_Correction | 從 .mat 重新畫圖 |
 
 ---
 
@@ -274,16 +295,20 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 - 品質: R² ≥ 0.85, DC gain 正號, ζ > 0
 - step_fit 支援 `FromCSV` 模式 — 直接從 CSV 載入，不需重新讀 .dat
 
-### 2.6 MIMO fitting (6×6)
+### 2.6 MIMO fitting (6×6) — 已整合為 step_mimo_fit
 - `H(s) = [A₂/(s²+A₁s+A₂)] · B`
 - 共享 (A₁,A₂)，獨立 b_ℓ
 - `fit_mimo_tf.m`: block matrix reduction → 2×2 系統
 - `B_modified`: off-diagonal 取負 (物理符號慣例)
 - 記錄 B_raw 和 B_modified
+- **自動 180° 相位修正**: `auto_phase_correct_6x6` 投票法，18/36 通道修正
+- **兩階段設計**: Stage 1 (mimo_fft: 原始 CSV) → Stage 2 (mimo_fit: 修正→擬合)
+- **三種精度輸出**: .mat (double), CSV (10位有效), LaTeX (4位有效)
 
-### 2.7 共享假設檢驗
+### 2.7 共享假設檢驗 — 已整合為 step_mimo_fit
 - 36-channel batch single fitting → `a₁_matrix`, `a₂_matrix`
 - 計算 CV (coefficient of variation): CV < 10% → 假設合理
+- 實測 CV: a1=59%, a2=72% (偏高，但 MIMO fitting 仍穩定)
 
 ### 2.8 ZOH 離散化
 - `c2d(H_continuous, T_sample, 'zoh')`, `T_sample = 1e-5s` (100kHz)
@@ -302,7 +327,7 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 1. **所有 pipeline step functions 必須設定 `p.KeepUnmatched = true`**
    - `run_analysis` 會將完整的 `varargin`（如 `'wc_Hz', 1`）轉發給所有 steps
    - 若某 step 的 `inputParser` 不認識某參數且沒設 `KeepUnmatched`，會報錯
-   - 目前所有 6 個 step 都已正確設定
+   - 目前所有 9 個 step 都已正確設定 (6 single + 3 MIMO)
 
 2. **新增 pipeline step 的 checklist：**
    - [ ] `p.KeepUnmatched = true` — 必須
@@ -341,6 +366,14 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 12j. **Charge 物理分析** — `analyze_charge_physics` 使用論文符號系統 (Menq 2010/2011): Phi=k_pole*I, q=Phi/u0, B=k_pole*I/(4pi*r^2) (u0 抵消)；從 `charge_fit_results.mat` 載入 a/b，反推 k_pole [Wb/A] 和 R_a [A/Wb]；**注意：single pole (無 yoke) 的 R_a 是 R_total (R_pole+R_gap+R_return_air)，不是 Menq 定義的純 air-gap reluctance (有 yoke 提供低 R 回路)，兩者不可直接比較**。有意義的比較是 b (磁荷偏移 = 磁場集中程度)：NTU b=1979 um vs Menq l=405 um
 12k. **Force suppression (b >> r_tip)** — NTU: b=1979 um >> r_tip=5 um；K_I=1 (single pole test)；crossover (F=F_thermal) at ~609 um；F_real/F_ideal = [r_tip/(r_tip+b)]^5 ~ 10^-14 at tip
 
+### MIMO 注意
+12l. **自動相位修正** — `auto_phase_correct_6x6` 使用低頻 3 點投票 (0.1, 1, 10 Hz)；|phase| > 90° 門檻；修正後再 offset removal；18/36 通道需修正，完全匹配 legacy 硬編碼
+12m. **MIMO wc_Hz 預設 0.1** — 同 legacy `Model_6_6_Continuous_Weighted.m`；default_config 的 wc_Hz=100 不適用 MIMO，MIMO_config 覆寫為 0.1
+12n. **P*.m 頻率不完全一致** — P1 用 0.1 Hz，P2 用 0.102605 Hz 等；pipeline 同 legacy 做法，統一使用第一個檔案的頻率向量
+12o. **MIMO B_modified 繪圖用 abs(dc_gain)** — off-diagonal 的 dc_gain 為負數，magnitude 正規化需用 abs() 避免 log10 產生虛數
+12p. **MIMO A1/A2 預期值** — wc_Hz=0.1 時 A1~6617, A2~1.16e7；plan 中引用的 A1~8188, A2~1.48e7 是不同 wc 的結果
+12q. **CV 偏高但 MIMO 穩定** — batch single CV(a1)=59%, CV(a2)=72%，遠超 10% 門檻，但 MIMO 共享擬合仍穩定 (cond=1.48e7)
+
 ### Git / 工作流程規則
 13. **Commit 前必須清理臨時檔案** — 若在討論過程中產生了臨時腳本（如 `test_*.m`、`temp_*.m`）或臨時輸出圖片（如根目錄的 `.png`），commit 前務必刪除。Claude 應主動判斷並提醒清除這些臨時產物。
 14. **每輪討論或更動後必須更新 CLAUDE.md** — 對專案架構、規則、參數、注意事項的任何新理解或變更，都要反映到 CLAUDE.md 中。CLAUDE.md 是專案的 single source of truth，必須始終保持最新。
@@ -353,11 +386,14 @@ run_analysis('NTU', 'fit', 'wc_Hz', 10);
 19. **TS Lissajous (Vm/I)** — 已整合為 `step_compare` 的 `'Type','ts_lissajous'` 模式（同時產生原始 + 正規化兩張圖；正規化先去 DC 再除以 max(abs)）
 20. **TS TimeDomain** — 已整合為 `step_compare` 的 `'Type','ts_timedomain'` 模式（tip+surface 時域疊圖）
 
+### 已整合進 Pipeline 的功能 (續)
+21. **MIMO 6×6 fitting** — 已整合為 `step_mimo_fft` + `step_mimo_fit` + `step_mimo_plot`（原 `legacy/Model_6_6_Continuous_Weighted.m`），支援自動 180° 相位修正
+22. **ZOH 離散化** — 已整合為 `step_mimo_fit` 的一部分
+23. **共享假設檢驗 (CV)** — 已整合為 `step_mimo_fit` + `step_mimo_plot` (Shared_Hypothesis 圖)
+
 ### 尚未整合進 Pipeline 的功能
-21. **MIMO 6×6 fitting**（原 `Model_6_6_Continuous_Weighted.m` + `P1~P6.m`）— 已搬到 `legacy/`，未來可整合為 `step_fit` 的 MIMO 模式
-22. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
-23. **ZOH 離散化 Pipeline 整合** — 等 MIMO 完成後一起做
-24. **共享假設檢驗 (CV)** — 等 MIMO 完成後一起做
+24. **Averaged FFT 模式** — 目前 full 模式結果良好，需要時再實作
+25. **MIMO .dat 數據來源** — `step_mimo_fft` 目前僅支援 `'legacy'` (P*.m)，未來可擴充支援 .dat binary
 
 ---
 
@@ -425,7 +461,10 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | TS Lissajous | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2 |
 | TS Lissajous Norm | [1800,650] | 1×N | linear | on | top center manual, LineWidth=2, 去DC+normalize |
 | TS TimeDomain | [1800,700] | 1×N | linear | on | top center manual, LineWidth=2 |
-| 6×6 Bode | [900,720] | 2×1 | log | off | channel colors |
+| MIMO Per-Excitation Bode | [1000,900] | 2×1 | log | off | sw, P1~P6 colors, skip paired ch |
+| MIMO B Matrix | [800,700] | 1×1 | N/A | off | colorbar, blue-white-red |
+| MIMO Shared Hypothesis | [1200,500] | 1×2 | linear | on | per-subplot, xline for mean/MIMO |
+| MIMO Phase Correction | [1200,500] | 1×2 | N/A | off | correction_map + raw phase bar |
 | Charge Fit Overlay | [1200,800] | 1×1 | linear | off | northeast, 藍/紅/綠高對比色, 遞減線寬 |
 | Charge Fit Summary | [1200,700] | 2×1 | semilogx | on | per-subplot |
 | Charge Fit Single | [1200,800] | 1×1 | linear | off | northoutside horizontal, 黑色 Model 線 |
@@ -457,6 +496,10 @@ P1=k, P2=b, P3=g, P4=r, P5=m, P6=c
 | C4 | TS Lissajous (Vm/I) | 可選 | .dat → `Comparison_TS_Lissajous_{freqs}.png` + `_Normalized_{freqs}.png` | ✅ step_compare (ts_lissajous) |
 | C5 | TS TimeDomain | 可選 | .dat → `Comparison_TS_TimeDomain_{freqs}.png` | ✅ step_compare (ts_timedomain) |
 | D1/D2 | Cross-channel | 未來 | 多通道 | 未實作 |
+| E1 | MIMO Per-Excitation Bode | 固定 | P*.m → `MIMO_Bode_P1~P6.png` | ✅ step_mimo_plot |
+| E2 | MIMO B Matrix | 固定 | fit_results → `MIMO_B_Matrix.png` | ✅ step_mimo_plot |
+| E3 | MIMO Shared Hypothesis | 固定 | batch single → `MIMO_Shared_Hypothesis.png` | ✅ step_mimo_plot |
+| E4 | MIMO Phase Correction | 固定 | correction_map → `MIMO_Phase_Correction.png` | ✅ step_mimo_plot |
 
 ---
 
@@ -526,6 +569,16 @@ frequencies_19 = [0.1, 1, 10, 50, 100, 200, 300, 400, 500, 600, ...
 % Frequencies — 新 15 點 (UI Freq Sweep, Sweep_config.m)
 frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
                   1200, 1250, 1500, 1600, 2000, 2500, 3000];
+
+% MIMO 6×6
+k_A_diag = [0.3618, 0.3614, 0.3536, 0.3532, 0.3573, 0.3610]; % 各通道放大器增益
+T_sample = 1e-5;             % ZOH 取樣時間 (100 kHz)
+pair_map = [2,1,4,3,6,5];   % 配對通道 (繪圖跳過 paired)
+
+% MIMO fitting 結果 (wc_Hz=0.1, p=0.5)
+A1 = 6617.2;                % s^-1
+A2 = 1.159e7;               % s^-2
+B_diag = [0.237, 0.282, 0.211, 0.236, 0.257, 0.185]; % DC gain diagonal
 ```
 
 ## 驗證方法
@@ -555,6 +608,7 @@ frequencies_15 = [0.1, 1, 10, 50, 100, 200, 500, 1000, ...
 22. **Charge calibration (Hung)** — `fit_charge_model` 合成數據 (a=5, b=120) 回收精度 0% (無噪聲) / <1.5% (1% 噪聲)，R²=1.0/0.9999；CSV round-trip zero diff；4 個新檔案 checkcode 零警告
 23. **Charge calibration (NTU)** — 22 距離 (10~2000 μm), 330/330 有效, b=1978.9±1.2 μm, R²>0.992；Overlay/Summary/Single 0.1Hz 三張圖正確生成；μm 標示正確
 24. **Charge physics analysis (NTU)** — k_pole=1.57e-7 Wb/A, R_a=3.19e8 A/Wb (R_total, single pole 無 yoke；Menq R_a=1.8e9/2.8e9 為 air-gap only 有 yoke，不可直接比較), K_I=1, r_tip=5 um, B(10um)=2.3 mT (EQ730L 線性範圍內), a CV=0.06%, F(500um)=0.023 pN, crossover ~609 um; b=1979 um 為有意義的比較指標 (vs Menq l=405 um)
+25. **MIMO 6×6 pipeline** — `auto_phase_correct_6x6` correction_map 完全匹配 legacy (18/36 corrected)；A1=6617.2 與 legacy 差異 <0.01%；所有 8 個新/修改檔案 checkcode 零警告；4 個模式 (mimo_all/mimo_fft/mimo_fit/mimo_plot) 皆正確運作；CSV round-trip 結果一致
 
 ### 完整驗證指令
 ```matlab
@@ -606,4 +660,9 @@ run_charge_cali('Charge_NTU', 'plot');
 
 % Charge physics analysis
 analyze_charge_physics('Charge_NTU');
+
+% MIMO 6×6 fitting
+run_analysis('MIMO', 'mimo_all');
+run_analysis('MIMO', 'mimo_fit');           % from CSV
+run_analysis('MIMO', 'mimo_plot');          % from .mat
 ```

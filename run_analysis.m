@@ -17,6 +17,12 @@ function run_analysis(experiment, step, varargin)
 %   'plot'    - 從 CSV 或 fit_results 畫圖
 %   'compare' - 多實驗比較 (experiment 需為 cell array)
 %
+% MIMO modes (experiment='MIMO'):
+%   'mimo_fft'  - Stage 1: 數據 → 原始 CSV
+%   'mimo_fit'  - Stage 2: 相位修正 → 擬合 → 圖
+%   'mimo_all'  - 兩階段完整流程
+%   'mimo_plot' - 從 .mat 重新畫圖
+%
 % Optional Name-Value pairs (forward to step_fit):
 %   'wc_Hz'    - 覆寫截止頻率
 %   'p_weight' - 覆寫加權指數
@@ -75,9 +81,30 @@ function run_analysis(experiment, step, varargin)
                 step_plot(config, [], 'DataOnly', true, 'FromCSV', true, varargin{:});
             end
 
+        case 'mimo_fft'
+            step_mimo_fft(config, varargin{:});
+
+        case 'mimo_fit'
+            fit_results = step_mimo_fit(config, [], [], [], varargin{:});
+            step_mimo_plot(config, fit_results, varargin{:});
+
+        case 'mimo_all'
+            [H_mag, H_phase_raw, frequencies] = step_mimo_fft(config, varargin{:});
+            fit_results = step_mimo_fit(config, H_mag, H_phase_raw, frequencies, varargin{:});
+            step_mimo_plot(config, fit_results, varargin{:});
+
+        case 'mimo_plot'
+            fit_mat = fullfile(config.output_folder, 'fitting_results', 'mimo_fit_results.mat');
+            if ~exist(fit_mat, 'file')
+                error('run_analysis:mimo_mat_not_found', ...
+                    'File not found: %s\nRun mimo_all or mimo_fit first.', fit_mat);
+            end
+            loaded = load(fit_mat);
+            step_mimo_plot(config, loaded.fit_results, varargin{:});
+
         otherwise
             error('run_analysis:unknown_step', ...
-                'Unknown step: %s\nValid: all, read, fft, fit, plot, compare', step);
+                'Unknown step: %s\nValid: all, read, fft, fit, plot, compare, mimo_fft, mimo_fit, mimo_all, mimo_plot', step);
     end
 
     fprintf('\n========================================\n');
