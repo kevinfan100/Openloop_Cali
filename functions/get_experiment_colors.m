@@ -54,4 +54,20 @@ function colors = get_experiment_colors()
     colors.NTU_pair_3.rgb = [0, 0.6, 0];
     colors.NTU_pair_3.marker = 'd';
     colors.NTU_pair_3.display_name = 'coupled';
+
+    colors.Hung_test1.rgb = [1, 0, 0];
+    colors.Hung_test1.marker = 's';
+    colors.Hung_test1.display_name = 'single';
+
+    colors.Hung_single_yoke_test1.rgb = [0, 0, 1];
+    colors.Hung_single_yoke_test1.marker = 'o';
+    colors.Hung_single_yoke_test1.display_name = 'single yoke';
+
+    colors.Hung_pair_test1_2.rgb = [0, 0, 1];
+    colors.Hung_pair_test1_2.marker = 'o';
+    colors.Hung_pair_test1_2.display_name = 'pair excite';
+
+    colors.Hung_pair_test1_3.rgb = [0, 0.6, 0];
+    colors.Hung_pair_test1_3.marker = 'd';
+    colors.Hung_pair_test1_3.display_name = 'coupled';
 end

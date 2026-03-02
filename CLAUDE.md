@@ -15,7 +15,7 @@ pipeline/                   ← 6 single steps + 3 MIMO steps
   step_read / step_steady_state / step_fft / step_fit / step_plot / step_compare
   step_mimo_fft / step_mimo_fit / step_mimo_plot
 functions/                  ← 10 個核心演算法 (read_hsdata, fit_single_tf, etc.)
-data/                       ← Hung/ Hung_no_washer/ Hung_spring_washer/ NTU/ NTU_ts/ Hung_pair/ NTU_pair/ Hung_single_yoke/
+data/                       ← Hung/ Hung_no_washer/ Hung_spring_washer/ NTU/ NTU_ts/ Hung_pair/ NTU_pair/ Hung_single_yoke/ Hung_test1/ Hung_single_yoke_test1/ Hung_pair_test1/
 results/                    ← 各實驗結果 + Tag 子資料夾比較圖
 charge_cali/                ← 獨立磁荷校準模組 (入口: run_charge_cali.m)
 legacy/                     ← P1~P6.m (MIMO data) + 舊腳本 (保留供參考)
