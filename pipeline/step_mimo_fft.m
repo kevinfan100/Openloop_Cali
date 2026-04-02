@@ -36,8 +36,8 @@ function [H_mag, H_phase_raw, frequencies] = step_mimo_fft(config, varargin)
                 config.mimo.legacy_data_folder, 'Verbose', opts.Verbose);
 
         case 'dat'
-            error('step_mimo_fft:dat_not_implemented', ...
-                'DAT data source not yet implemented. Use ''legacy'' for now.');
+            [H_mag, H_phase_raw, frequencies] = load_dat_pdata( ...
+                config, 'Verbose', opts.Verbose);
 
         otherwise
             error('step_mimo_fft:unknown_source', ...
