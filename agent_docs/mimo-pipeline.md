@@ -65,3 +65,15 @@ B_diag = [0.237, 0.282, 0.211, 0.236, 0.257, 0.185];
 - **B_modified 繪圖用 abs(dc_gain)** — off-diagonal dc_gain 為負，magnitude 正規化需用 abs()
 - **A1/A2 預期值** — wc_Hz=0.1 時 A1~6617, A2~1.16e7
 - **資料來源**: `step_mimo_fft` 目前僅支援 `'legacy'` (P*.m)，未來可擴充 .dat
+
+## Band fit 與 PT3D 2026 數據 (2026-11-13, branch feature/v8-data-band-fit)
+
+- `functions/fit_mimo_band.m`：同樣的共用二階結構 H = G·B，G(s) = A2/(s²+A1 s+A2)，但
+  - B = |H(f_min)|（0.1 Hz 實測，同 legacy B_raw 意義；B_modified 非對角取負）
+  - A1/A2：固定 G(0)=1，只在頻帶（預設 200–1500 Hz）最小化 6 條對角曲線的複數相對誤差 Σ|G/Hn − 1|²
+  - legacy `fit_mimo_tf`（wc 0.1 Hz，權重 ≈ 0.1/f）照舊執行；band 結果放在 `fit_results.band`（含 ZOH 離散 k_o/b/a1/a2）
+- 開關：`config.fitting.band.enable / range / curves`（default 關閉，舊實驗結果不變）
+- `config.output.save_processed_mat = true`：另存 `results/<exp>/processed/MIMO_Raw_Bode_Data.mat`、`mimo_fit_results.mat`（fitting_results/*.mat 被 git ignore，processed/ 會進版控）
+- `configs/PT3D_OL_2V_20261113_config.m`：PT3D_SW FreqSweep 開迴路（三個控制開關全關，alpha = 激發軸，beta = 2 V），HSData V8，100 kHz，15 點；`.dat` 在實驗機 `PT3D_SW\Export`，不在 repo
+- `compare_fit_methods.m`：2025 (legacy P*.m) vs 2026 × legacy vs band，輸出 `results/compare_fit_20261113/README.md`
+- `read_hsdata.m`：V6 header 實為 120 bytes（116 欄位 + 4 對齊），原本寫 116

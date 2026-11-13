@@ -56,6 +56,20 @@ function [H_mag, H_phase_raw, frequencies] = step_mimo_fft(config, varargin)
         end
     end
 
+    %% version-controlled .mat of the raw (uncorrected) Bode tensor
+    if isfield(config.output, 'save_processed_mat') && config.output.save_processed_mat
+        proc_dir = fullfile(config.output_folder, 'processed');
+        if ~exist(proc_dir, 'dir'), mkdir(proc_dir); end
+        raw_bode = struct('H_mag', H_mag, 'H_phase_raw', H_phase_raw, 'frequencies', frequencies, ...
+            'source', config.mimo.data_source, 'experiment', config.experiment_name, ...
+            'created', char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss')));
+        if isfield(config.mimo, 'dat_prefix'), raw_bode.dat_prefix = config.mimo.dat_prefix; end
+        save(fullfile(proc_dir, 'MIMO_Raw_Bode_Data.mat'), 'raw_bode');
+        if opts.Verbose
+            fprintf('MAT saved: %s\n', fullfile(proc_dir, 'MIMO_Raw_Bode_Data.mat'));
+        end
+    end
+
     fprintf('Stage 1 complete: %d x %d x %d tensor\n', ...
         size(H_mag, 1), size(H_mag, 2), size(H_mag, 3));
 end

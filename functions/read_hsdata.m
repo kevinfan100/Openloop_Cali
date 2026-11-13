@@ -67,7 +67,7 @@ function data = read_hsdata(filename)
 % File Format:
 %   Header V1/V2: 24 bytes (magic[6] + padding[2] + version[4] + record_count[4] + timestamp[8])
 %   Header V3-V5: 48 bytes (V1/V2 header + frequency[4] + amplitude[4] + channel[4] + fB_f[4] + fB_c[4] + fB_e[4])
-%   Header V6:   116 bytes (V3 header + sampling_rate[4] + Kp[24] + Ki[24] + control_mode[4] + debug_signal_type[4] + loop_mode[4] + reserved[4])
+%   Header V6:   120 bytes (V3 header + sampling_rate[4] + Kp[24] + Ki[24] + control_mode[4] + debug_signal_type[4] + loop_mode[4] + reserved[4] + 4 padding)
 %   Header V7:   152 bytes (V6 header + test_mode[4] + position_m[12] + fd_direction[12] + R_norm[4] + FGain[4])
 %   Header V8:   168 bytes (V7 header + frame_rate[4] + fd_mode[4] + fd_const_value[4] + padding[4])
 %   V1: 60 bytes/record (Vm[6] + vd[6] + da[6])
@@ -192,7 +192,7 @@ function data = read_hsdata(filename)
                                 data.R_norm, data.FGain);
                     end
                 else
-                    header_size = 116;  % V6: 116 bytes (48 + 68)
+                    header_size = 120;  % V6: 116 bytes of fields + 4 padding (C++ struct aligned to 8 bytes)
                     fprintf('Header detected: version=%d, record_count=%d\n', version, header_record_count);
                     fprintf('  Test params: freq=%.1f Hz, amp=%.3f V, ch=%d, fB_f=%.1f, fB_c=%.1f, fB_e=%.1f\n', ...
                             data.frequency, data.amplitude, data.channel, data.fB_f, data.fB_c, data.fB_e);

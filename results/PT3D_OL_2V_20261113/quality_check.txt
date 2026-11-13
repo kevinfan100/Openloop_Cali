@@ -1,0 +1,102 @@
+== P1
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 1 | DA1 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.2298/ +169.3
+      1 Hz hdr f 1 amp 2 ch 1 | DA1 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.2259/ +169.4
+     10 Hz hdr f 10 amp 2 ch 1 | DA1 2.000 V (42 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.2227/ +166.7
+     50 Hz hdr f 50 amp 2 ch 1 | DA1 2.000 V (103 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.2094/ +157.4
+    100 Hz hdr f 100 amp 2 ch 1 | DA1 2.000 V (188 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.1920/ +149.1
+    200 Hz hdr f 200 amp 2 ch 1 | DA1 2.000 V (367 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.1635/ +137.3
+    500 Hz hdr f 500 amp 2 ch 1 | DA1 2.000 V (934 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.1146/ +115.0
+   1000 Hz hdr f 1000 amp 2 ch 1 | DA1 2.000 V (1884 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0762/  +89.5
+   1200 Hz hdr f 1200 amp 2 ch 1 | DA1 2.000 V (2263 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0663/  +81.0
+   1250 Hz hdr f 1250 amp 2 ch 1 | DA1 2.000 V (2354 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0643/  +79.0
+   1500 Hz hdr f 1500 amp 2 ch 1 | DA1 2.000 V (2984 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0550/  +69.3
+   1600 Hz hdr f 1600 amp 2 ch 1 | DA1 2.000 V (3020 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0517/  +65.6
+   2000 Hz hdr f 2000 amp 2 ch 1 | DA1 2.000 V (3983 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0415/  +51.8
+   2500 Hz hdr f 2500 amp 2 ch 1 | DA1 2.000 V (4720 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0325/  +35.9
+   3000 Hz hdr f 3000 amp 2 ch 1 | DA1 2.000 V (5975 cyc, sat 0) cnt-steps [2] | Vm1/DA1 0.0261/  +21.0
+== P2
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 2 | DA2 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.2698/  -10.4
+      1 Hz hdr f 1 amp 2 ch 2 | DA2 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.2668/  -10.5
+     10 Hz hdr f 10 amp 2 ch 2 | DA2 2.000 V (42 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.2637/  -13.8
+     50 Hz hdr f 50 amp 2 ch 2 | DA2 2.000 V (103 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.2444/  -26.6
+    100 Hz hdr f 100 amp 2 ch 2 | DA2 2.000 V (178 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.2162/  -37.6
+    200 Hz hdr f 200 amp 2 ch 2 | DA2 2.000 V (367 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.1735/  -52.0
+    500 Hz hdr f 500 amp 2 ch 2 | DA2 2.000 V (937 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.1115/  -77.7
+   1000 Hz hdr f 1000 amp 2 ch 2 | DA2 2.000 V (1882 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0682/ -107.7
+   1200 Hz hdr f 1200 amp 2 ch 2 | DA2 2.000 V (2265 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0577/ -117.7
+   1250 Hz hdr f 1250 amp 2 ch 2 | DA2 2.000 V (2353 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0554/ -120.1
+   1500 Hz hdr f 1500 amp 2 ch 2 | DA2 2.000 V (2830 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0460/ -131.4
+   1600 Hz hdr f 1600 amp 2 ch 2 | DA2 2.000 V (3021 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0429/ -135.8
+   2000 Hz hdr f 2000 amp 2 ch 2 | DA2 2.000 V (3983 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0332/ -152.0
+   2500 Hz hdr f 2500 amp 2 ch 2 | DA2 2.000 V (4723 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0250/ -170.6
+   3000 Hz hdr f 3000 amp 2 ch 2 | DA2 2.000 V (5980 cyc, sat 0) cnt-steps [2] | Vm2/DA2 0.0194/ +171.9
+== P3
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 3 | DA3 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1913/ +169.0
+      1 Hz hdr f 1 amp 2 ch 3 | DA3 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1897/ +169.1
+     10 Hz hdr f 10 amp 2 ch 3 | DA3 2.000 V (40 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1887/ +166.7
+     50 Hz hdr f 50 amp 2 ch 3 | DA3 2.000 V (108 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1787/ +157.3
+    100 Hz hdr f 100 amp 2 ch 3 | DA3 2.000 V (178 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1635/ +148.8
+    200 Hz hdr f 200 amp 2 ch 3 | DA3 2.000 V (388 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.1376/ +137.2
+    500 Hz hdr f 500 amp 2 ch 3 | DA3 2.000 V (984 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0950/ +117.1
+   1000 Hz hdr f 1000 amp 2 ch 3 | DA3 2.000 V (1882 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0677/  +95.8
+   1200 Hz hdr f 1200 amp 2 ch 3 | DA3 2.000 V (2379 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0620/  +88.2
+   1250 Hz hdr f 1250 amp 2 ch 3 | DA3 2.000 V (2350 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0608/  +86.3
+   1500 Hz hdr f 1500 amp 2 ch 3 | DA3 2.000 V (2983 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0557/  +76.7
+   1600 Hz hdr f 1600 amp 2 ch 3 | DA3 2.000 V (3013 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0539/  +72.9
+   2000 Hz hdr f 2000 amp 2 ch 3 | DA3 2.000 V (3983 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0477/  +57.1
+   2500 Hz hdr f 2500 amp 2 ch 3 | DA3 2.000 V (4721 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0405/  +36.8
+   3000 Hz hdr f 3000 amp 2 ch 3 | DA3 2.000 V (5972 cyc, sat 0) cnt-steps [2] | Vm3/DA3 0.0333/  +16.6
+== P4
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 4 | DA4 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.2210/  -10.5
+      1 Hz hdr f 1 amp 2 ch 4 | DA4 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.2203/  -10.7
+     10 Hz hdr f 10 amp 2 ch 4 | DA4 2.000 V (42 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.2183/  -14.2
+     50 Hz hdr f 50 amp 2 ch 4 | DA4 2.000 V (108 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.2013/  -26.8
+    100 Hz hdr f 100 amp 2 ch 4 | DA4 2.000 V (178 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.1776/  -37.6
+    200 Hz hdr f 200 amp 2 ch 4 | DA4 2.000 V (367 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.1413/  -51.7
+    500 Hz hdr f 500 amp 2 ch 4 | DA4 2.000 V (936 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0873/  -75.2
+   1000 Hz hdr f 1000 amp 2 ch 4 | DA4 2.000 V (1880 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0539/  -99.1
+   1200 Hz hdr f 1200 amp 2 ch 4 | DA4 2.000 V (2383 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0467/ -106.9
+   1250 Hz hdr f 1250 amp 2 ch 4 | DA4 2.000 V (2358 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0452/ -108.8
+   1500 Hz hdr f 1500 amp 2 ch 4 | DA4 2.000 V (2828 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0392/ -118.0
+   1600 Hz hdr f 1600 amp 2 ch 4 | DA4 2.000 V (3024 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0372/ -121.5
+   2000 Hz hdr f 2000 amp 2 ch 4 | DA4 2.000 V (3770 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0311/ -135.4
+   2500 Hz hdr f 2500 amp 2 ch 4 | DA4 2.000 V (4724 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0258/ -152.3
+   3000 Hz hdr f 3000 amp 2 ch 4 | DA4 2.000 V (5657 cyc, sat 0) cnt-steps [2] | Vm4/DA4 0.0221/ -169.3
+== P5
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 5 | DA5 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.2495/  -10.8
+      1 Hz hdr f 1 amp 2 ch 5 | DA5 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.2483/  -10.9
+     10 Hz hdr f 10 amp 2 ch 5 | DA5 2.000 V (42 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.2468/  -14.4
+     50 Hz hdr f 50 amp 2 ch 5 | DA5 2.000 V (108 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.2289/  -27.2
+    100 Hz hdr f 100 amp 2 ch 5 | DA5 2.000 V (178 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.2025/  -38.1
+    200 Hz hdr f 200 amp 2 ch 5 | DA5 2.000 V (368 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.1623/  -52.5
+    500 Hz hdr f 500 amp 2 ch 5 | DA5 2.000 V (937 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.1028/  -78.5
+   1000 Hz hdr f 1000 amp 2 ch 5 | DA5 2.000 V (1884 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0607/ -107.7
+   1200 Hz hdr f 1200 amp 2 ch 5 | DA5 2.000 V (2263 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0510/ -117.1
+   1250 Hz hdr f 1250 amp 2 ch 5 | DA5 2.000 V (2356 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0489/ -119.3
+   1500 Hz hdr f 1500 amp 2 ch 5 | DA5 2.000 V (2832 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0404/ -129.8
+   1600 Hz hdr f 1600 amp 2 ch 5 | DA5 2.000 V (3022 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0376/ -133.8
+   2000 Hz hdr f 2000 amp 2 ch 5 | DA5 2.000 V (3779 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0290/ -148.8
+   2500 Hz hdr f 2500 amp 2 ch 5 | DA5 2.000 V (4725 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0219/ -166.1
+   3000 Hz hdr f 3000 amp 2 ch 5 | DA5 2.000 V (5661 cyc, sat 0) cnt-steps [2] | Vm5/DA5 0.0170/ +177.6
+== P6
+15 files
+    0.1 Hz hdr f 0.1 amp 2 ch 6 | DA6 2.000 V (9 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1716/ +170.2
+      1 Hz hdr f 1 amp 2 ch 6 | DA6 2.000 V (28 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1707/ +170.1
+     10 Hz hdr f 10 amp 2 ch 6 | DA6 2.000 V (40 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1695/ +167.5
+     50 Hz hdr f 50 amp 2 ch 6 | DA6 2.000 V (108 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1590/ +157.9
+    100 Hz hdr f 100 amp 2 ch 6 | DA6 2.000 V (178 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1447/ +149.5
+    200 Hz hdr f 200 amp 2 ch 6 | DA6 2.000 V (388 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.1215/ +138.1
+    500 Hz hdr f 500 amp 2 ch 6 | DA6 2.000 V (933 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0825/ +118.5
+   1000 Hz hdr f 1000 amp 2 ch 6 | DA6 2.000 V (1886 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0560/  +99.6
+   1200 Hz hdr f 1200 amp 2 ch 6 | DA6 2.000 V (2265 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0504/  +93.6
+   1250 Hz hdr f 1250 amp 2 ch 6 | DA6 2.000 V (2484 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0492/  +92.2
+   1500 Hz hdr f 1500 amp 2 ch 6 | DA6 2.000 V (2984 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0446/  +85.0
+   1600 Hz hdr f 1600 amp 2 ch 6 | DA6 2.000 V (3023 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0431/  +82.3
+   2000 Hz hdr f 2000 amp 2 ch 6 | DA6 2.000 V (3982 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0387/  +71.1
+   2500 Hz hdr f 2500 amp 2 ch 6 | DA6 2.000 V (4729 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0348/  +57.4
+   3000 Hz hdr f 3000 amp 2 ch 6 | DA6 2.000 V (5980 cyc, sat 0) cnt-steps [2] | Vm6/DA6 0.0325/  +43.1

@@ -52,6 +52,10 @@ function config = default_config()
     config.fitting.wc_Hz = 100;
     config.fitting.verbose = true;
     config.fitting.exclude_frequencies = [];     % e.g. [0.1, 900]
+    % MIMO band fit (optional; the legacy fit_mimo_tf always runs): B = |H(f_min)|, A1/A2 over a band
+    config.fitting.band.enable = false;
+    config.fitting.band.range = [200 1500];       % Hz
+    config.fitting.band.curves = 'diag';          % 'diag' | 'all'
 
     %% Phase
     config.phase.normalize = true;
@@ -65,6 +69,7 @@ function config = default_config()
 
     %% Output
     config.output.save_csv = true;
+    config.output.save_processed_mat = false;    % true: also save .mat to results/<exp>/processed/ (tracked by git)
     config.output.save_figures = true;
     config.output.save_fitting_results = true;
     config.output.figure_format = 'png';

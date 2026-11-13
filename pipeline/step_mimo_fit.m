@@ -157,6 +157,23 @@ function fit_results = step_mimo_fit(config, H_mag_in, H_phase_in, frequencies_i
         fprintf('  System UNSTABLE\n');
     end
 
+    %% 5b. Band fit (optional): B from the lowest frequency, A1/A2 fitted over a frequency band
+    band_res = [];
+    if isfield(config.fitting, 'band') && config.fitting.band.enable
+        fprintf('\n--- Band Fit (B at f_min, A1/A2 over %g-%g Hz) ---\n', config.fitting.band.range);
+        band_res = fit_mimo_band(H_mag, H_phase_corrected, frequencies, ...
+            'Band', config.fitting.band.range, 'Curves', config.fitting.band.curves, ...
+            'Init', [A1 A2], 'Verbose', opts.Verbose);
+        Hb = c2d(tf(band_res.A2, [1, band_res.A1, band_res.A2]), T_sample, 'zoh');
+        [nb, db] = tfdata(Hb, 'v'); nb = nb / db(1); db = db / db(1);
+        band_res.discrete.num_z = nb; band_res.discrete.den_z = db;
+        band_res.discrete.poles_z = roots(db);
+        band_res.discrete.k_o = nb(2); band_res.discrete.b = nb(3) / nb(2);
+        band_res.discrete.a1 = -db(2); band_res.discrete.a2 = -db(3);
+        fprintf('  Discrete: k_o %.6e, b %.6f, a1 %.6f, a2 %.6f\n', band_res.discrete.k_o, ...
+            band_res.discrete.b, band_res.discrete.a1, band_res.discrete.a2);
+    end
+
     %% 6. 放大器增益矩陣
     k_A = diag(config.mimo.k_A_diag);
 
@@ -196,6 +213,9 @@ function fit_results = step_mimo_fit(config, H_mag_in, H_phase_in, frequencies_i
     fit_results.fitting_params.p = opts.p_weight;
     fit_results.fitting_params.wc_Hz = opts.wc_Hz;
 
+    % Band fit (empty when disabled)
+    fit_results.band = band_res;
+
     %% Console 摘要
     fprintf('\n--- MIMO Fitting Summary ---\n');
     fprintf('  A1 = %.15e\n', A1);
@@ -214,6 +234,13 @@ function fit_results = step_mimo_fit(config, H_mag_in, H_phase_in, frequencies_i
             'mimo_fit_results.mat');
         save(mat_path, 'fit_results');
         fprintf('MAT saved: %s\n', mat_path);
+        % version-controlled copy (fitting_results/*.mat is git-ignored)
+        if isfield(config.output, 'save_processed_mat') && config.output.save_processed_mat
+            proc_dir = fullfile(config.output_folder, 'processed');
+            if ~exist(proc_dir, 'dir'), mkdir(proc_dir); end
+            save(fullfile(proc_dir, 'mimo_fit_results.mat'), 'fit_results');
+            fprintf('MAT saved: %s\n', fullfile(proc_dir, 'mimo_fit_results.mat'));
+        end
 
         % CSV (10 significant digits)
         csv_fit = fullfile(config.output_folder, 'fitting_results', ...
